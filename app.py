@@ -122,6 +122,5 @@ else:
         )
 
     if st.button("🔁 Resetear test"):
-        st.session_state.test_generado = False
-        st.session_state.preguntas = []
+        st.session_state.clear()
         st.experimental_rerun()
