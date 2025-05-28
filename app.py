@@ -48,7 +48,7 @@ Genera {n_preguntas} preguntas tipo test en formato JSON con 4 opciones cada una
 def exportar_test_y_soluciones(preguntas):
     pdf_test = FPDF()
     pdf_test.add_page()
-    pdf_test.set_font("Arial", size=12)
+    pdf_test.set_font("Helvetica", size=12)
     pdf_test.cell(200, 10, txt="TEST - EvalúaYa", ln=True, align="C")
     pdf_test.ln(10)
 
