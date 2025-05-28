@@ -10,13 +10,13 @@ import tempfile
 # Cliente OpenAI con clave desde secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-def generar_preguntas_ia(texto_usuario):
+def generar_preguntas_ia(texto_usuario, n_preguntas):
     prompt = f"""
 Eres un generador de preguntas tipo test para opositores. A partir del siguiente texto:
 
 "{texto_usuario}"
 
-Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, y marca la respuesta correcta. Devuelve solo el JSON sin explicaciones, así:
+Genera {n_preguntas} preguntas tipo test en formato JSON con 4 opciones cada una, y marca la respuesta correcta. Devuelve solo el JSON sin explicaciones, así:
 
 [
   {{
@@ -27,7 +27,6 @@ Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, y marca la
   ...
 ]
     """
-
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}]
@@ -47,7 +46,6 @@ Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, y marca la
     return preguntas
 
 def exportar_test_y_soluciones(preguntas):
-    # PDF de preguntas
     pdf_test = FPDF()
     pdf_test.add_page()
     pdf_test.set_font("Arial", size=12)
@@ -63,7 +61,6 @@ def exportar_test_y_soluciones(preguntas):
     temp_test = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf_test.output(temp_test.name)
 
-    # PDF de soluciones
     pdf_sol = FPDF()
     pdf_sol.add_page()
     pdf_sol.set_font("Arial", size=12)
@@ -86,13 +83,14 @@ st.markdown("## 🧠 EvalúaYa")
 st.markdown("### Genera test tipo oposición desde cualquier texto con IA")
 
 texto_input = st.text_area("📄 Pega aquí el texto sobre el que quieres generar preguntas", height=200)
+n_preguntas = st.slider("Número de preguntas a generar", 1, 10, 3)
 
 if st.button("🎯 Generar test"):
     if not texto_input.strip():
         st.warning("⚠️ Introduce un texto válido para generar el test.")
     else:
         st.info("Generando test con IA... espera unos segundos.")
-        preguntas = generar_preguntas_ia(texto_input)
+        preguntas = generar_preguntas_ia(texto_input, n_preguntas)
         st.success("✅ Test generado:")
 
         for idx, p in enumerate(preguntas, start=1):
