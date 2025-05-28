@@ -77,7 +77,10 @@ def exportar_test_y_soluciones(preguntas):
 
     for i, p in enumerate(preguntas, 1):
         pdf_sol.multi_cell(0, 10, f"{i}. {p['pregunta']}")
-        respuesta = p.get("respuesta", "").strip() or "[respuesta vacía]"
+        raw = p.get("respuesta", "")
+        respuesta = re.sub(r"[^\w\sáéíóúÁÉÍÓÚñÑ.,:;()?!-]", "", raw.strip())
+        if not respuesta.strip():
+            respuesta = "[respuesta inválida]"
         pdf_sol.multi_cell(0, 10, f"   Respuesta correcta: {respuesta}")
         pdf_sol.ln(5)
 
