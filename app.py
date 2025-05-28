@@ -45,10 +45,20 @@ Genera {n_preguntas} preguntas tipo test en formato JSON con 4 opciones cada una
     
     return preguntas
 
+from fpdf import FPDF
+import tempfile
+
+class PDF(FPDF):
+    pass
+
 def exportar_test_y_soluciones(preguntas):
-    pdf_test = FPDF()
+    font_path = "fonts/Roboto-Regular.ttf"
+
+    # PDF de preguntas
+    pdf_test = PDF()
     pdf_test.add_page()
-    pdf_test.set_font("Helvetica", size=12)
+    pdf_test.add_font("Roboto", "", font_path, uni=True)
+    pdf_test.set_font("Roboto", size=12)
     pdf_test.cell(200, 10, txt="TEST - EvalúaYa", ln=True, align="C")
     pdf_test.ln(10)
 
@@ -61,9 +71,11 @@ def exportar_test_y_soluciones(preguntas):
     temp_test = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf_test.output(temp_test.name)
 
-    pdf_sol = FPDF()
+    # PDF de soluciones
+    pdf_sol = PDF()
     pdf_sol.add_page()
-    pdf_sol.set_font("Arial", size=12)
+    pdf_sol.add_font("Roboto", "", font_path, uni=True)
+    pdf_sol.set_font("Roboto", size=12)
     pdf_sol.cell(200, 10, txt="SOLUCIONES - EvalúaYa", ln=True, align="C")
     pdf_sol.ln(10)
 
