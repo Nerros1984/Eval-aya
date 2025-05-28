@@ -7,8 +7,10 @@ import re
 from fpdf import FPDF
 import tempfile
 
-# Cliente OpenAI con clave desde secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+class PDF(FPDF):
+    pass
 
 def generar_preguntas_ia(texto_usuario, n_preguntas):
     prompt = f"""
@@ -27,6 +29,7 @@ Genera {n_preguntas} preguntas tipo test en formato JSON con 4 opciones cada una
   ...
 ]
     """
+
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}]
@@ -42,19 +45,12 @@ Genera {n_preguntas} preguntas tipo test en formato JSON con 4 opciones cada una
             preguntas = [{"pregunta": f"⚠️ Error JSON: {str(e)}", "opciones": [], "respuesta": ""}]
     else:
         preguntas = [{"pregunta": "⚠️ No se encontró un JSON válido.", "opciones": [], "respuesta": ""}]
-    
+
     return preguntas
-
-from fpdf import FPDF
-import tempfile
-
-class PDF(FPDF):
-    pass
 
 def exportar_test_y_soluciones(preguntas):
     font_path = "fonts/Roboto-Regular.ttf"
 
-    # PDF de preguntas
     pdf_test = PDF()
     pdf_test.add_page()
     pdf_test.add_font("Roboto", "", font_path, uni=True)
@@ -71,7 +67,6 @@ def exportar_test_y_soluciones(preguntas):
     temp_test = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf_test.output(temp_test.name)
 
-    # PDF de soluciones
     pdf_sol = PDF()
     pdf_sol.add_page()
     pdf_sol.add_font("Roboto", "", font_path, uni=True)
@@ -89,7 +84,6 @@ def exportar_test_y_soluciones(preguntas):
 
     return temp_test.name, temp_sol.name
 
-# INTERFAZ STREAMLIT
 st.set_page_config(page_title="EvalúaYa - Generador IA", layout="centered")
 st.markdown("## 🧠 EvalúaYa")
 st.markdown("### Genera test tipo oposición desde cualquier texto con IA")
@@ -113,9 +107,7 @@ if st.button("🎯 Generar test"):
             else:
                 st.warning("⚠️ No hay opciones disponibles.")
 
-        st.caption(f"🆔 Test ID: {uuid.uuid4()} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-        # Botones de descarga de PDFs
+        # Generar y mostrar botones de descarga
         test_pdf, sol_pdf = exportar_test_y_soluciones(preguntas)
 
         with open(test_pdf, "rb") as file:
