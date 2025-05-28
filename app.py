@@ -4,6 +4,8 @@ import uuid
 from datetime import datetime
 import json
 import re
+from fpdf import FPDF
+import tempfile
 
 # Cliente OpenAI con clave desde secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -32,26 +34,51 @@ Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, y marca la
     )
 
     contenido = completion.choices[0].message.content
-
-    # Intentar extraer JSON de la respuesta
     match = re.search(r"\[\s*{.*?}\s*\]", contenido, re.DOTALL)
+
     if match:
         try:
             preguntas = json.loads(match.group())
         except Exception as e:
-            preguntas = [{
-                "pregunta": f"⚠️ Error al procesar el JSON: {str(e)}",
-                "opciones": [],
-                "respuesta": ""
-            }]
+            preguntas = [{"pregunta": f"⚠️ Error JSON: {str(e)}", "opciones": [], "respuesta": ""}]
     else:
-        preguntas = [{
-            "pregunta": "⚠️ No se encontró un bloque JSON válido en la respuesta de la IA.",
-            "opciones": [],
-            "respuesta": ""
-        }]
+        preguntas = [{"pregunta": "⚠️ No se encontró un JSON válido.", "opciones": [], "respuesta": ""}]
     
     return preguntas
+
+def exportar_test_y_soluciones(preguntas):
+    # PDF de preguntas
+    pdf_test = FPDF()
+    pdf_test.add_page()
+    pdf_test.set_font("Arial", size=12)
+    pdf_test.cell(200, 10, txt="TEST - EvalúaYa", ln=True, align="C")
+    pdf_test.ln(10)
+
+    for i, p in enumerate(preguntas, 1):
+        pdf_test.multi_cell(0, 10, f"{i}. {p['pregunta']}")
+        for letra, opcion in zip("ABCD", p["opciones"]):
+            pdf_test.cell(0, 10, f"   ({letra}) ( ) {opcion}", ln=True)
+        pdf_test.ln(5)
+
+    temp_test = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf_test.output(temp_test.name)
+
+    # PDF de soluciones
+    pdf_sol = FPDF()
+    pdf_sol.add_page()
+    pdf_sol.set_font("Arial", size=12)
+    pdf_sol.cell(200, 10, txt="SOLUCIONES - EvalúaYa", ln=True, align="C")
+    pdf_sol.ln(10)
+
+    for i, p in enumerate(preguntas, 1):
+        pdf_sol.multi_cell(0, 10, f"{i}. {p['pregunta']}")
+        pdf_sol.multi_cell(0, 10, f"   ✅ Respuesta correcta: {p['respuesta']}")
+        pdf_sol.ln(5)
+
+    temp_sol = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf_sol.output(temp_sol.name)
+
+    return temp_test.name, temp_sol.name
 
 # INTERFAZ STREAMLIT
 st.set_page_config(page_title="EvalúaYa - Generador IA", layout="centered")
@@ -77,3 +104,22 @@ if st.button("🎯 Generar test"):
                 st.warning("⚠️ No hay opciones disponibles.")
 
         st.caption(f"🆔 Test ID: {uuid.uuid4()} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        # Botones de descarga de PDFs
+        test_pdf, sol_pdf = exportar_test_y_soluciones(preguntas)
+
+        with open(test_pdf, "rb") as file:
+            st.download_button(
+                label="📥 Descargar test (PDF)",
+                data=file,
+                file_name="test_evalua_ya.pdf",
+                mime="application/pdf"
+            )
+
+        with open(sol_pdf, "rb") as file:
+            st.download_button(
+                label="📥 Descargar soluciones (PDF)",
+                data=file,
+                file_name="soluciones_evalua_ya.pdf",
+                mime="application/pdf"
+            )
