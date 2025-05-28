@@ -3,6 +3,7 @@ from openai import OpenAI
 import uuid
 from datetime import datetime
 import json
+import re
 
 # Usar la clave desde secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -30,12 +31,18 @@ Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, una de ell
         messages=[{"role": "user", "content": prompt}]
     )
 
-    contenido = completion.choices[0].message.content
+contenido = completion.choices[0].message.content
 
+# Buscar el primer bloque de texto que parezca una lista JSON
+match = re.search(r"\[\s*{.*?}\s*\]", contenido, re.DOTALL)
+
+if match:
     try:
-        preguntas = json.loads(contenido)
+        preguntas = json.loads(match.group())
     except Exception:
-        preguntas = [{"pregunta": "⚠️ Error al procesar respuesta IA", "opciones": [], "respuesta": ""}]
+        preguntas = [{"pregunta": "⚠️ Error al procesar el JSON de la IA", "opciones": [], "respuesta": ""}]
+else:
+    preguntas = [{"pregunta": "⚠️ No se encontró un bloque JSON válido", "opciones": [], "respuesta": ""}]
 
     return preguntas
 
