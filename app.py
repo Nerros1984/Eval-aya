@@ -89,6 +89,7 @@ def exportar_test_completo(preguntas):
     c.save()
     return temp_pdf.name
 
+# Interfaz
 st.title("🧠 EvalúaYa - Generador de Test por Temario")
 
 if "test_generado" not in st.session_state:
@@ -103,7 +104,7 @@ if not st.session_state.test_generado:
             preguntas = generar_preguntas_ia(texto, n_preguntas)
             st.session_state.test_generado = True
             st.session_state.preguntas = preguntas
-            st.success("✅ Test generado con éxito.")
+            st.experimental_rerun()
 else:
     st.subheader("📋 Preguntas generadas")
     for i, p in enumerate(st.session_state.preguntas, 1):
