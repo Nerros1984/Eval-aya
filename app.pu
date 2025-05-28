@@ -3,8 +3,8 @@ from openai import OpenAI
 import uuid
 from datetime import datetime
 import json
-
 import os
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generar_preguntas_ia(texto_usuario):
