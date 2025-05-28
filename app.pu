@@ -1,0 +1,62 @@
+import streamlit as st
+from openai import OpenAI
+import uuid
+from datetime import datetime
+import json
+
+import os
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def generar_preguntas_ia(texto_usuario):
+    prompt = f"""
+Eres un generador de preguntas tipo test para opositores. A partir del siguiente texto:
+
+"""{texto_usuario}"""
+
+Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, una de ellas correcta. Devuelve algo como esto:
+
+[
+  {{
+    "pregunta": "...",
+    "opciones": ["...", "...", "...", "..."],
+    "respuesta": "..."
+  }},
+  ...
+]
+    """
+
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    contenido = completion.choices[0].message.content
+
+    try:
+        preguntas = json.loads(contenido)
+    except Exception:
+        preguntas = [{"pregunta": "â ï¸ Error al procesar respuesta IA", "opciones": [], "respuesta": ""}]
+
+    return preguntas
+
+# Interfaz en Streamlit
+st.set_page_config(page_title="EvalÃºaYa - Generador IA", layout="centered")
+st.title("ð§  EvalÃºaYa")
+st.subheader("Genera test tipo oposiciÃ³n desde cualquier texto con IA")
+
+texto_input = st.text_area("ð Pega aquÃ­ el texto sobre el que quieres generar preguntas", height=200)
+
+if st.button("ð¯ Generar test"):
+    if not texto_input.strip():
+        st.warning("â ï¸ Introduce un texto vÃ¡lido para generar el test.")
+    else:
+        st.info("Generando test con IA... espera unos segundos.")
+        preguntas = generar_preguntas_ia(texto_input)
+        st.success("â Test generado:")
+
+        for idx, p in enumerate(preguntas, start=1):
+            st.markdown(f"### Pregunta {idx}")
+            st.write(p["pregunta"])
+            st.radio("Opciones:", p["opciones"], key=f"preg_{idx}")
+
+        st.caption(f"ð Test ID: {uuid.uuid4()} â {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
