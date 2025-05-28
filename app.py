@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 import re
 
-# Usar la clave desde secrets
+# Cliente OpenAI con clave desde secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def generar_preguntas_ia(texto_usuario):
@@ -14,13 +14,13 @@ Eres un generador de preguntas tipo test para opositores. A partir del siguiente
 
 "{texto_usuario}"
 
-Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, una de ellas correcta. Devuelve algo como esto:
+Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, y marca la respuesta correcta. Devuelve solo el JSON sin explicaciones, así:
 
 [
   {{
-    "pregunta": "...",
-    "opciones": ["...", "...", "...", "..."],
-    "respuesta": "..."
+    "pregunta": "¿Cuál es la función del poder legislativo?",
+    "opciones": ["Ejecutar leyes", "Interpretar leyes", "Crear leyes", "Proponer leyes"],
+    "respuesta": "Crear leyes"
   }},
   ...
 ]
@@ -31,25 +31,32 @@ Genera 3 preguntas tipo test en formato JSON con 4 opciones cada una, una de ell
         messages=[{"role": "user", "content": prompt}]
     )
 
-contenido = completion.choices[0].message.content
+    contenido = completion.choices[0].message.content
 
-# Buscar el primer bloque de texto que parezca una lista JSON
-match = re.search(r"\[\s*{.*?}\s*\]", contenido, re.DOTALL)
-
-if match:
-    try:
-        preguntas = json.loads(match.group())
-    except Exception:
-        preguntas = [{"pregunta": "⚠️ Error al procesar el JSON de la IA", "opciones": [], "respuesta": ""}]
-else:
-    preguntas = [{"pregunta": "⚠️ No se encontró un bloque JSON válido", "opciones": [], "respuesta": ""}]
-
+    # Intentar extraer JSON de la respuesta
+    match = re.search(r"\[\s*{.*?}\s*\]", contenido, re.DOTALL)
+    if match:
+        try:
+            preguntas = json.loads(match.group())
+        except Exception as e:
+            preguntas = [{
+                "pregunta": f"⚠️ Error al procesar el JSON: {str(e)}",
+                "opciones": [],
+                "respuesta": ""
+            }]
+    else:
+        preguntas = [{
+            "pregunta": "⚠️ No se encontró un bloque JSON válido en la respuesta de la IA.",
+            "opciones": [],
+            "respuesta": ""
+        }]
+    
     return preguntas
 
-# Interfaz en Streamlit
+# INTERFAZ STREAMLIT
 st.set_page_config(page_title="EvalúaYa - Generador IA", layout="centered")
-st.title("🧠 EvalúaYa")
-st.subheader("Genera test tipo oposición desde cualquier texto con IA")
+st.markdown("## 🧠 EvalúaYa")
+st.markdown("### Genera test tipo oposición desde cualquier texto con IA")
 
 texto_input = st.text_area("📄 Pega aquí el texto sobre el que quieres generar preguntas", height=200)
 
@@ -64,6 +71,9 @@ if st.button("🎯 Generar test"):
         for idx, p in enumerate(preguntas, start=1):
             st.markdown(f"### Pregunta {idx}")
             st.write(p["pregunta"])
-            st.radio("Opciones:", p["opciones"], key=f"preg_{idx}")
+            if p["opciones"]:
+                st.radio("Opciones:", p["opciones"], key=f"preg_{idx}")
+            else:
+                st.warning("⚠️ No hay opciones disponibles.")
 
         st.caption(f"🆔 Test ID: {uuid.uuid4()} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
