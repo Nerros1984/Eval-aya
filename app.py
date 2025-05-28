@@ -1,121 +1,123 @@
 
 import streamlit as st
+from openai import OpenAI
+import json
 import uuid
-from datetime import datetime
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-import json
-import openai
 
 # Configuración inicial
-st.set_page_config(page_title="EvalúaYa - Generador de Test", layout="centered")
+st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario")
 
 st.markdown("## 🧠 EvalúaYa - Generador de Test por Temario")
-st.markdown("✍️ Introduce el contenido del temario (puede ser un párrafo o más):")
+st.markdown("### ✍️ Introduce el contenido del temario (puede ser un párrafo o más):")
 
-# Inputs
-texto_usuario = st.text_area(" ", height=200)
-num_preguntas = st.slider("Número de preguntas a generar:", 3, 20, 5)
+# Función para generar preguntas con IA
+def generar_preguntas_ia(texto, num_preguntas=3):
+    client = OpenAI()
+    prompt = f"""Eres un generador de preguntas tipo test para opositores. A partir del siguiente texto:
 
-# Función para generar preguntas
-def generar_preguntas(texto, cantidad):
-    prompt = f"""
-Eres un generador de preguntas tipo test para oposiciones. A partir del siguiente texto:
+{texto}
 
-"""{texto}"""
+Genera {num_preguntas} preguntas tipo test en formato JSON. Cada pregunta debe tener 4 opciones (A, B, C, D), con una única opción correcta.
 
-Genera {cantidad} preguntas tipo test en formato JSON. Cada pregunta debe tener 4 opciones (A, B, C, D) y una sola correcta. Devuelve solo la estructura como esta:
-
+Devuelve el resultado en este formato exacto:
 [
   {{
-    "pregunta": "...",
-    "opciones": ["...", "...", "...", "..."],
-    "respuesta": "..."
+    "pregunta": "¿Pregunta 1?",
+    "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
+    "respuesta": "Opción correcta"
   }},
   ...
 ]
 """
-    client = openai.OpenAI(api_key=st.secrets["api_key"])
-    respuesta = client.chat.completions.create(
+
+    completion = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
     )
-    contenido = respuesta.choices[0].message.content
+
+    contenido = completion.choices[0].message.content
     try:
         preguntas = json.loads(contenido)
     except:
         preguntas = []
     return preguntas
 
-# Función para exportar a PDF
+# Función para exportar test y soluciones en PDF
 def exportar_test_y_soluciones(preguntas):
-    test_pdf = BytesIO()
-    sol_pdf = BytesIO()
-    c_test = canvas.Canvas(test_pdf, pagesize=A4)
-    c_sol = canvas.Canvas(sol_pdf, pagesize=A4)
-    w, h = A4
+    buffer_test = BytesIO()
+    buffer_sol = BytesIO()
 
-    c_test.setFont("Helvetica", 12)
-    c_sol.setFont("Helvetica", 12)
+    pdf_test = canvas.Canvas(buffer_test, pagesize=A4)
+    pdf_sol = canvas.Canvas(buffer_sol, pagesize=A4)
 
-    y_test = h - 40
-    y_sol = h - 40
+    width, height = A4
+    y_test = height - 50
+    y_sol = height - 50
 
     for i, p in enumerate(preguntas, 1):
-        c_test.drawString(40, y_test, f"Pregunta {i}: {p['pregunta']}")
+        pregunta = p["pregunta"]
+        opciones = p["opciones"]
+        respuesta = p["respuesta"]
+        letra_correcta = "ABCD"[opciones.index(respuesta)]
+
+        pdf_test.drawString(40, y_test, f"{i}. {pregunta}")
         y_test -= 20
-        for j, opcion in enumerate(p["opciones"]):
-            letra = chr(65 + j)
-            c_test.drawString(60, y_test, f"({letra}) {opcion}")
+        for letra, opcion in zip("ABCD", opciones):
+            pdf_test.drawString(60, y_test, f"( ) {letra}. {opcion}")
             y_test -= 20
         y_test -= 10
 
-        c_sol.drawString(40, y_sol, f"Pregunta {i}: {p['pregunta']}")
+        pdf_sol.drawString(40, y_sol, f"{i}. {pregunta}")
         y_sol -= 20
-        correcta = p["respuesta"]
-        for j, opcion in enumerate(p["opciones"]):
-            letra = chr(65 + j)
-            if opcion == correcta:
-                c_sol.drawString(60, y_sol, f"✅ ({letra}) {opcion}")
-            else:
-                c_sol.drawString(60, y_sol, f"({letra}) {opcion}")
-            y_sol -= 20
-        y_sol -= 10
+        pdf_sol.drawString(60, y_sol, f"✅ Respuesta correcta: {letra_correcta}. {respuesta}")
+        y_sol -= 30
 
-    c_test.save()
-    c_sol.save()
-    test_pdf.seek(0)
-    sol_pdf.seek(0)
-    return test_pdf, sol_pdf
+        if y_test < 100:
+            pdf_test.showPage()
+            y_test = height - 50
+        if y_sol < 100:
+            pdf_sol.showPage()
+            y_sol = height - 50
 
-# Generación
-if "test_generado" not in st.session_state:
-    st.session_state.test_generado = False
+    pdf_test.save()
+    pdf_sol.save()
+    buffer_test.seek(0)
+    buffer_sol.seek(0)
+    return buffer_test, buffer_sol
+
+# INTERFAZ STREAMLIT
+if "preguntas" not in st.session_state:
     st.session_state.preguntas = []
 
-if not st.session_state.test_generado:
-    if st.button("🎯 Generar test"):
-        if texto_usuario.strip():
-            st.info("Generando test con IA... espera unos segundos.")
-            preguntas = generar_preguntas(texto_usuario, num_preguntas)
-            if preguntas:
-                st.session_state.preguntas = preguntas
-                st.session_state.test_generado = True
-                st.success("✅ Test generado con éxito.")
+texto_input = st.text_area("✍️ Pega aquí el texto sobre el que quieres generar preguntas", height=200)
+
+num_preguntas = st.slider("Número de preguntas a generar:", min_value=3, max_value=20, value=5)
+
+if st.button("🎯 Generar test"):
+    if texto_input.strip():
+        st.info("Generando test con IA... espera unos segundos.")
+        preguntas = generar_preguntas_ia(texto_input.strip(), num_preguntas)
+        if preguntas:
+            st.session_state.preguntas = preguntas
+            st.success("✅ Test generado con éxito.")
         else:
-            st.warning("⚠️ Por favor, introduce un texto antes de generar.")
-else:
-    preguntas = st.session_state.preguntas
-    for i, p in enumerate(preguntas, 1):
-        st.markdown(f"**Pregunta {i}**")
+            st.error("❌ Error al generar preguntas. Intenta nuevamente.")
+
+if st.session_state.preguntas:
+    for idx, p in enumerate(st.session_state.preguntas, 1):
+        st.markdown(f"### Pregunta {idx}")
         st.markdown(p["pregunta"])
-        st.radio("Opciones:", p["opciones"], index=None, key=str(uuid.uuid4()))
+        st.radio("Opciones:", p["opciones"], key=f"pregunta_{idx}")
 
-    test_pdf, sol_pdf = exportar_test_y_soluciones(preguntas)
+    test_pdf, sol_pdf = exportar_test_y_soluciones(st.session_state.preguntas)
 
-    st.download_button("📄 Descargar test completo (con soluciones)", test_pdf, file_name="test.pdf")
-    st.download_button("📄 Descargar soluciones", sol_pdf, file_name="soluciones.pdf")
+    st.download_button("📥 Descargar test completo (con soluciones)", test_pdf, file_name="test_preguntas.pdf")
+    st.download_button("📄 Descargar solo soluciones", sol_pdf, file_name="soluciones.pdf")
 
     if st.button("🔄 Resetear test"):
         st.session_state.clear()
