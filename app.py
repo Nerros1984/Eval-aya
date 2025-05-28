@@ -81,7 +81,10 @@ def exportar_test_y_soluciones(preguntas):
         respuesta = re.sub(r"[^\w\sáéíóúÁÉÍÓÚñÑ.,:;()?!-]", "", raw.strip())
         if not respuesta.strip():
             respuesta = "[respuesta inválida]"
-        pdf_sol.multi_cell(0, 10, f"   Respuesta correcta: {respuesta}")
+        try:
+            pdf_sol.multi_cell(0, 10, f"   Respuesta correcta: {respuesta}")
+        except Exception:
+            pdf_sol.multi_cell(0, 10, "   Respuesta correcta: [error al renderizar respuesta]")
         pdf_sol.ln(5)
 
     temp_sol = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
