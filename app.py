@@ -77,7 +77,8 @@ def exportar_test_y_soluciones(preguntas):
 
     for i, p in enumerate(preguntas, 1):
         pdf_sol.multi_cell(0, 10, f"{i}. {p['pregunta']}")
-        pdf_sol.multi_cell(0, 10, f"   Respuesta correcta: {p['respuesta']}")
+        respuesta = p.get("respuesta", "").strip() or "[respuesta vacía]"
+        pdf_sol.multi_cell(0, 10, f"   Respuesta correcta: {respuesta}")
         pdf_sol.ln(5)
 
     temp_sol = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
