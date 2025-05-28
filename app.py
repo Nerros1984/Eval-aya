@@ -109,7 +109,6 @@ if st.button("🎯 Generar test"):
             else:
                 st.warning("⚠️ No hay opciones disponibles.")
 
-        # Generar y mostrar botones de descarga
         test_pdf, sol_pdf = exportar_test_y_soluciones(preguntas)
 
         with open(test_pdf, "rb") as file:
