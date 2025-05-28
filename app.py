@@ -15,7 +15,7 @@ def generar_preguntas_ia(texto, num_preguntas):
     prompt = f"""
 Eres un generador de preguntas tipo test para opositores. A partir del siguiente texto:
 
-"""{texto}"""
+f"""{texto}"""
 
 Genera {num_preguntas} preguntas tipo test en formato JSON con 4 opciones (A, B, C, D) y señala cuál es la respuesta correcta. Devuelve algo como esto:
 
