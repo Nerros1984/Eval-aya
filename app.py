@@ -3,8 +3,8 @@ import streamlit as st
 import json
 import tempfile
 
-from utils_drive import cargar_preguntas_desde_drive, exportar_test_json
-from utils_test import generar_test_con_criterio_real, obtener_criterio_test, descargar_pdf_test
+from utils.drive import cargar_preguntas_desde_drive, exportar_test_json
+from utils.test import generar_test_con_criterio_real, obtener_criterio_test, descargar_pdf_test
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
 st.title("🧠 EvalúaYa - Generador de Test por Temario")
