@@ -1,3 +1,4 @@
+
 import random
 import json
 import os
@@ -18,7 +19,6 @@ def obtener_criterio_test(nombre_oposicion):
     }
     return criterios.get(nombre_oposicion)
 
-# Carga preguntas previamente guardadas en Drive/JSON locales (mejorable)
 def cargar_preguntas_json(nombre_oposicion):
     nombre_archivo = nombre_oposicion.lower().replace(" ", "_").replace("–", "-")
     path = f"data/test_{nombre_archivo}.json"
@@ -27,7 +27,6 @@ def cargar_preguntas_json(nombre_oposicion):
     with open(path, "r") as f:
         return json.load(f)
 
-# Generación estructurada
 def generar_test_con_criterio_real(nombre_oposicion):
     criterio = obtener_criterio_test(nombre_oposicion)
     preguntas = cargar_preguntas_json(nombre_oposicion)
@@ -41,7 +40,6 @@ def generar_test_con_criterio_real(nombre_oposicion):
 
     seleccionadas = []
 
-    # Reparto proporcional
     n_bloques_teo = len(criterio["bloques_teoricos"])
     por_bloque_teo = criterio["n_teoricas"] // n_bloques_teo
 
@@ -56,11 +54,16 @@ def generar_test_con_criterio_real(nombre_oposicion):
     random.shuffle(seleccionadas)
     return seleccionadas
 
-# Exportación como JSON
+def generar_test_examen_completo(oposicion, num_preguntas):
+    preguntas = cargar_preguntas_json(oposicion)
+    return random.sample(preguntas, min(len(preguntas), num_preguntas))
+
+def generar_test_desde_tema(tema_json, num_preguntas):
+    return random.sample(tema_json, min(len(tema_json), num_preguntas))
+
 def exportar_test_json(preguntas):
     return json.dumps(preguntas, indent=2)
 
-# Exportación como PDF
 def descargar_pdf_test(preguntas):
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     c = canvas.Canvas(temp_file.name, pagesize=A4)
