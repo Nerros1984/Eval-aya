@@ -1,60 +1,79 @@
-import streamlit as st
 import os
-import tempfile
+import re
+import unicodedata
+import streamlit as st
 from datetime import datetime
-from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
 from utils.drive import subir_archivo_a_drive, CARPETA_TEMARIOS
+from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
+from utils.test import generar_test_con_criterio_real, obtener_criterio_test
 
-st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
-st.title("\U0001F9E0 EvalúaYa - Generador de Test por Temario")
+# Configuración de la interfaz
+st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario")
+st.markdown("""
+    <style>
+    .stButton>button {
+        background-color: #3ECF8E;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-modo = st.radio("", ["Subir nuevo temario", "Usar oposición guardada"], horizontal=True)
+st.markdown("<h1>🧠 EvalúaYa - Generador de Test por Temario</h1>", unsafe_allow_html=True)
 
-if modo == "Subir nuevo temario":
-    st.markdown("### 📄 Subir nuevo temario")
-    st.markdown("**📄 Sube un archivo DOCX o PDF con tu temario:**")
+modo = st.radio("", ["📄 Subir nuevo temario", "✨ Usar oposición guardada"], horizontal=True)
 
-    archivo_subido = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"])
-    tipo_contenido = st.selectbox("\ud83d\udd0d ¿Qué contiene este archivo?", ["Temario completo", "Tema individual"])
-    nombre_oposicion = st.text_input("\ud83c\udf3a Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
-    nombre_temario = st.text_input("\ud83d\udcc4 Nombre del documento de temario (Ej: Temario bloque I)")
+# ---------------------- MODO 1: SUBIR NUEVO TEMARIO ------------------------ #
+if modo == "📄 Subir nuevo temario":
+    st.subheader("📁 Subida de Temario")
+    st.markdown("#### 📃 Sube un archivo DOCX o PDF con tu temario:")
 
-    if archivo_subido and nombre_oposicion.strip() and nombre_temario.strip():
-        if st.button("\u2705 Guardar y registrar temario"):
+    archivo = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"], label_visibility="collapsed")
+    tipo_contenido = st.selectbox("¿Qué contiene este archivo?", ["Temario completo", "Bloque de temas"])
+    nombre_oposicion = st.text_input("📕 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
+    nombre_temario = st.text_input("📘 Nombre del documento de temario (Ej: Temario bloque I)")
+
+    if archivo and nombre_oposicion and nombre_temario:
+        if st.button("✅ Guardar y registrar temario"):
             try:
-                with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                    tmp.write(archivo_subido.read())
-                    tmp_path = tmp.name
+                # Guardar archivo temporalmente
+                tmp_path = os.path.join("/tmp", archivo.name)
+                with open(tmp_path, "wb") as f:
+                    f.write(archivo.read())
 
+                # Subir a Drive y obtener enlace
                 url_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, CARPETA_TEMARIOS)
 
+                # Registrar en hoja
                 registrar_en_sheet(
                     nombre_oposicion,
                     tipo_contenido,
                     nombre_temario,
-                    "",  # tema vacío para temario completo
+                    "",
                     url_drive,
                     datetime.now().strftime("%Y-%m-%d %H:%M")
                 )
 
-                st.success("\u2705 Temario subido y registrado correctamente.")
+                st.success("✅ Temario subido y registrado correctamente.")
 
             except Exception as e:
-                st.error(f"\u274C Error al guardar el temario: {e}")
-
+                st.error(f"❌ Error al guardar el temario: {e}")
     else:
-        st.info("\u26A0\ufe0f Sube un archivo válido y escribe un nombre de oposición para comenzar.")
+        st.info("🔷 Sube un archivo válido y escribe un nombre de oposición para comenzar.")
 
-elif modo == "Usar oposición guardada":
-    st.markdown("### 🎯 Generar Test Oficial")
+# ---------------------- MODO 2: USAR TEMARIO GUARDADO ------------------------ #
+elif modo == "✨ Usar oposición guardada":
+    st.subheader("🎯 Generar Test Oficial")
 
-    oposiciones = obtener_oposiciones_guardadas()
-
-    if not oposiciones:
-        st.info("\u26a0️ Aún no hay temarios registrados en la plataforma.")
-    else:
-        seleccion = st.selectbox("Selecciona una oposición registrada:", oposiciones)
-        st.success(f"\u2705 Puedes generar test para: {seleccion}")
-
-        # Aquí debería ir la lógica para mostrar temas disponibles y botones para generar test
-        st.markdown("(Aquí iría el selector de temas o generador directo de test)")
+    try:
+        oposiciones = obtener_oposiciones_guardadas()
+        if not oposiciones:
+            st.warning("⚠️ Aún no hay temarios registrados en la plataforma.")
+        else:
+            seleccion = st.selectbox("Selecciona una oposición:", list(oposiciones.keys()))
+            criterio = obtener_criterio_test(seleccion)
+            st.write(f"Criterio para {seleccion}: {criterio}")
+            if st.button("✅ Generar test según examen real"):
+                test = generar_test_con_criterio_real(seleccion, criterio)
+                st.write(test)
+    except Exception as e:
+        st.error(f"❌ Error al cargar oposiciones: {e}")
