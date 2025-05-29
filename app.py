@@ -1,5 +1,3 @@
-# app.py (versión base estructurada para flujo limpio)
-
 import streamlit as st
 from datetime import datetime
 from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
@@ -7,58 +5,61 @@ from utils.drive import subir_archivo_a_drive
 from utils.test import generar_test_con_criterio_real, obtener_criterio_test
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
-st.title("\U0001f9e0 EvalúaYa - Generador de Test por Temario")
 
-# Menú principal: elegir acción
-modo = st.radio("", ["\U0001f4c2 Subir nuevo temario", "✨ Usar oposición guardada"], index=0)
+st.title("🧠 EvalúaYa - Generador de Test por Temario")
 
-if modo == "\U0001f4c2 Subir nuevo temario":
-    st.subheader("\ud83d\udcc1 Subida de Temario")
+# Estilo limpio con botones para elegir flujo
+col1, col2 = st.columns(2)
+opcion = None
+with col1:
+    if st.button("📂 Subir nuevo temario"):
+        opcion = "subir"
+with col2:
+    if st.button("✨ Usar oposición guardada"):
+        opcion = "usar"
 
+# Subir temario
+if opcion == "subir":
+    st.markdown("### Subida de Temario")
     archivo_subido = st.file_uploader("Sube un archivo DOCX o PDF con tu temario:", type=["pdf", "docx"])
-    tipo_contenido = st.selectbox("\ud83d\udd0d ¿Qué contiene este archivo?", ["Temario completo", "Resumen", "Tema individual"])
-    nombre_oposicion = st.text_input("\ud83c\udfe2 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
+    tipo_contenido = st.selectbox("¿Qué contiene este archivo?", ["Temario completo", "Resumen", "Tema individual"])
+    nombre_oposicion = st.text_input("📋 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
 
-    if archivo_subido and nombre_oposicion.strip():
-        if st.button("\ud83d\udcc5 Guardar y registrar temario"):
-            # Guardado en carpeta de Drive
-            with open("temp_subida", "wb") as f:
-                f.write(archivo_subido.read())
-            enlace = subir_archivo_a_drive("temp_subida", nombre_oposicion)
+    if archivo_subido and nombre_oposicion:
+        if st.button("✅ Guardar y registrar temario"):
+            # Guardar archivo en Drive y registrar
+            with open(f"/tmp/{archivo_subido.name}", "wb") as f:
+                f.write(archivo_subido.getvalue())
 
-            # Registro en hoja
+            url = subir_archivo_a_drive(f"/tmp/{archivo_subido.name}", nombre_oposicion)
             registrar_en_sheet(
                 nombre_oposicion,
                 tipo_contenido,
-                "",  # temario json vacío
-                enlace,
+                "",
+                url,
                 datetime.now().strftime("%Y-%m-%d %H:%M")
             )
-            st.success("Temario subido y registrado con éxito.")
-
+            st.success("Temario subido y registrado correctamente. Ya puedes generar test desde el panel oficial.")
     else:
-        st.info("\u26a0\ufe0f Sube un archivo válido y escribe un nombre de oposición para comenzar.")
+        st.info("🔼 Sube un archivo válido y escribe un nombre de oposición para comenzar.")
 
-elif modo == "✨ Usar oposición guardada":
-    st.subheader("\ud83c\udf3f Generar Test Oficial")
-
+# Usar temario ya registrado
+elif opcion == "usar":
+    st.markdown("### 🎯 Generar Test Oficial")
     oposiciones = obtener_oposiciones_guardadas()
-
     if oposiciones:
         seleccion = st.selectbox("Selecciona una oposición:", list(oposiciones.keys()))
-        st.info(obtener_criterio_test(seleccion))
+        st.markdown(f"`{oposiciones[seleccion]}`")
 
-        if st.button("\ud83c\udf1f Generar Test según examen real"):
-            test = generar_test_con_criterio_real(seleccion)
-            if test:
-                st.success("Test generado con éxito.")
-                for i, p in enumerate(test):
-                    st.markdown(f"**{i+1}. {p['pregunta']}**")
-                    for letra, opcion in zip(["A", "B", "C", "D"], p["opciones"]):
-                        st.markdown(f"- {letra}. {opcion}")
-                    st.markdown(f"**Respuesta correcta:** {p['respuesta']}")
-                    st.divider()
+        if st.button("🎯 Generar Test según examen real"):
+            preguntas = generar_test_con_criterio_real(seleccion)
+            if preguntas:
+                for i, pregunta in enumerate(preguntas):
+                    st.markdown(f"**{i+1}. {pregunta['pregunta']}**")
+                    for opcion in pregunta['opciones']:
+                        st.markdown(f"- {opcion}")
+                st.success("✅ Test generado con éxito.")
             else:
-                st.error("No se pudo generar el test.")
+                st.error("❌ No se pudo generar el test. Verifica si hay datos suficientes para esta oposición.")
     else:
-        st.warning("\u26a0\ufe0f Aún no hay oposiciones registradas. Sube un temario primero.")
+        st.warning("⚠️ Aún no hay temarios registrados. Por favor, sube uno antes de generar test.")
