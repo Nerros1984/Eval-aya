@@ -6,6 +6,7 @@ from reportlab.pdfgen import canvas
 import streamlit as st
 import openai
 import json
+import re
 import tempfile
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
@@ -15,6 +16,18 @@ st.markdown("✍️ **Introduce el contenido del temario** (puede ser un párraf
 
 texto_input = st.text_area(" ", height=300, label_visibility="collapsed")
 num_preguntas = st.slider("Número de preguntas a generar:", min_value=3, max_value=20, value=5)
+
+def extraer_json_valido(respuesta):
+    # Elimina ```json y ```
+    texto = respuesta.strip().strip("`")
+    if texto.startswith("json"):
+        texto = texto[len("json"):].strip()
+
+    # Extrae el primer bloque JSON válido
+    patron_json = re.search(r'\[\s*{.*?}\s*\]', texto, re.DOTALL)
+    if patron_json:
+        return patron_json.group(0)
+    return texto
 
 def generar_preguntas_ia(texto, num_preguntas):
     prompt = f"""Eres un generador de preguntas tipo test. A partir del siguiente texto:
@@ -39,19 +52,13 @@ Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opc
             messages=[{"role": "user", "content": prompt}]
         )
         content = completion.choices[0].message.content
-
-        # 🧹 Limpieza de backticks y formato ```json
-        if content.startswith("```"):
-            content = content.strip("`").strip()
-            if content.startswith("json"):
-                content = content[len("json"):].strip()
-
-        preguntas = json.loads(content)
+        json_limpio = extraer_json_valido(content)
+        preguntas = json.loads(json_limpio)
         return preguntas
 
     except json.JSONDecodeError as e:
         st.error("❌ Error al interpretar la respuesta como JSON.")
-        st.text(content)
+        st.text(json_limpio)
         return None
     except Exception as e:
         st.error(f"⚠️ Error inesperado: {e}")
