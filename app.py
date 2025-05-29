@@ -17,17 +17,11 @@ st.markdown("✍️ **Introduce el contenido del temario** (puede ser un párraf
 texto_input = st.text_area(" ", height=200, label_visibility="collapsed")
 num_preguntas = st.slider("Número de preguntas a generar:", min_value=3, max_value=20, value=5)
 
-# Diagnóstico temporal de la clave API
-api_key = st.secrets.get("openai_api_key", "NO DEFINIDA")
-if api_key == "NO DEFINIDA":
-    st.error("🚨 La clave API de OpenAI no está configurada en los secrets.")
-    st.stop()
-
-# Funcón para generar preguntas con IA
+# Funcíon para generar preguntas con IA
 def generar_preguntas_ia(texto, num_preguntas):
     prompt = f"""Eres un generador de preguntas tipo test. A partir del siguiente texto:
 
-"""{texto}"""
+\"\"\"{texto}\"\"\"
 
 Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opciones, y una de ellas debe ser correcta. Devuelve solo el JSON con esta estructura:
 
@@ -38,9 +32,10 @@ Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opc
     "respuesta": "Letra de la opción correcta (A, B, C o D)"
   }},
   ...
-]"""
+]
+"""
     try:
-        client = openai.OpenAI(api_key=api_key)
+        client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
         completion = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}]
@@ -48,15 +43,16 @@ Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opc
         content = completion.choices[0].message.content
         preguntas = json.loads(content)
         return preguntas
-    except Exception as e:
-        st.error(f"\ud83d\udea8 Error al generar el test: {e}")
+    except Exception:
+        st.error("⚠️ No ha sido posible generar el test. Inténtalo más tarde.")
         return None
 
-# Funcón para exportar test y soluciones
+# Funcíon para exportar test y soluciones
 def exportar_test_y_soluciones(preguntas):
     test_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     sol_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
 
+    # Test PDF
     c = canvas.Canvas(test_temp.name, pagesize=A4)
     width, height = A4
     c.setFont("Helvetica", 12)
@@ -73,6 +69,7 @@ def exportar_test_y_soluciones(preguntas):
             y = height - 50
     c.save()
 
+    # Soluciones PDF
     c = canvas.Canvas(sol_temp.name, pagesize=A4)
     y = height - 50
     c.setFont("Helvetica", 12)
@@ -105,7 +102,7 @@ if st.button("🎯 Generar test"):
             st.session_state.test_generado = True
             st.success("✅ Test generado con éxito.")
 
-# Mostrar test y descargas
+# Mostrar test y descargas si está generado
 if st.session_state.test_generado and st.session_state.preguntas:
     st.markdown("---")
     for i, p in enumerate(st.session_state.preguntas):
@@ -114,11 +111,14 @@ if st.session_state.test_generado and st.session_state.preguntas:
         for opcion in p["opciones"]:
             st.radio("Opciones:", p["opciones"], index=-1, key=f"{i}_{opcion}", label_visibility="collapsed", disabled=True)
 
+    # Exportar PDF
     test_file, sol_file = exportar_test_y_soluciones(st.session_state.preguntas)
-    with open(test_file, "rb") as f:
-        st.download_button("📄 Descargar test completo (con soluciones)", f, file_name="test_completo.pdf")
+    with open(test_file, "rb") as f1, open(sol_file, "rb") as f2:
+        st.download_button("📄 Descargar test (solo preguntas)", f1, file_name="test.pdf")
+        st.download_button("📄 Descargar soluciones", f2, file_name="soluciones.pdf")
 
-    if st.button("🔄 Resetear test"):
+    # Botón de reset
+    if st.button("🔁 Resetear test"):
         st.session_state.test_generado = False
         st.session_state.preguntas = None
         st.rerun()
