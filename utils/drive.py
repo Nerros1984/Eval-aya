@@ -3,6 +3,7 @@ import unicodedata
 import os
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
+import json
 
 def autenticar_drive():
     gauth = GoogleAuth()
@@ -44,8 +45,6 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario):
     archivo_drive.SetContentFile(ruta_archivo)
     archivo_drive.Upload()
     return archivo_drive['alternateLink']
-
-import json
 
 # Simulación: cargar lista de oposiciones (de momento, fija)
 def cargar_preguntas_desde_drive(lista=False):
