@@ -18,53 +18,103 @@ st.title("🧠 EvalúaYa - Generador de Test por Temario")
 modo = st.radio("", ["📤 Subir nuevo temario", "🎯 Usar oposición guardada"])
 
 if modo == "📤 Subir nuevo temario":
-    st.subheader("📥 Subida de Temario")
+    st.header("📤 Subida de Temario")
     archivo_subido = st.file_uploader("📄 Sube un archivo DOCX o PDF con tu temario:", type=["pdf", "docx"])
     tipo_contenido = st.selectbox("🔍 ¿Qué contiene este archivo?", ["Temario completo", "Resumen", "Tema individual"])
-    nombre_temario = st.text_input("📝 Nombre del temario (Ej: Administrativo Junta Andalucía)")
+    nombre_temario = st.text_input("📌 Nombre del temario (Ej: Administrativo Ayuntamiento Sevilla)")
     nombre_oposicion = st.text_input("🏛️ Nombre de la oposición", placeholder="Ej: Auxiliar Administrativo – Ayuntamiento de Sevilla")
-
+    
     if archivo_subido and nombre_temario.strip() and nombre_oposicion.strip():
         if st.button("✅ Guardar y registrar temario"):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-                tmp.write(archivo_subido.read())
-                ruta = tmp.name
-            try:
-                url = subir_archivo_a_drive(ruta, nombre_temario)
+            with st.spinner("Subiendo y registrando temario..."):
+                extension = archivo_subido.name.split(".")[-1].lower()
+                suffix = f".{extension}"
+                temp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                temp.write(archivo_subido.read())
+                temp.close()
+
+                # Subir a carpeta correspondiente
+                url = subir_archivo_a_drive(temp.name, "temarios")
                 registrar_en_sheet(
+                    nombre_oposicion,
                     nombre_temario,
                     tipo_contenido,
                     url,
-                    "",  # No generamos aún el test, por lo tanto sin JSON
+                    "",
                     datetime.now().strftime("%Y-%m-%d %H:%M")
                 )
-                st.success("📁 Temario guardado con éxito en Drive y registrado.")
-            except Exception as e:
-                st.error(f"❌ Error al guardar el temario: {str(e)}")
+                st.success("✅ Temario guardado correctamente.")
     else:
-        st.info("🛈 Sube un archivo válido y completa todos los campos para continuar.")
+        st.info("🔼 Sube un archivo válido y completa todos los campos.")
 
-elif modo == "🎯 Usar oposición guardada":
-    st.subheader("🎯 Generar Test Oficial")
-    try:
-        oposiciones = obtener_oposiciones_guardadas()
-        if not oposiciones:
-            st.info("❕ Aún no hay temarios registrados. Sube uno nuevo desde la sección superior.")
-        else:
-            seleccion = st.selectbox("Selecciona una oposición:", oposiciones)
-            criterio = obtener_criterio_test(seleccion)
-            st.markdown(f"<div style='background-color:#1f4e79; padding:10px; border-radius:8px; color:white'>{criterio}</div>", unsafe_allow_html=True)
+else:
+    st.header("🎯 Generar Test Oficial")
+    oposiciones = obtener_oposiciones_guardadas()
+    if not oposiciones:
+        st.warning("⚠️ Aún no hay oposiciones registradas. Sube un temario primero.")
+    else:
+        seleccion = st.selectbox("Selecciona una oposición:", list(oposiciones.keys()))
+        st.info(f"📘 Criterio de test para {seleccion}: {obtener_criterio_test(seleccion)}")
 
-            if st.button("🧪 Generar Test según examen real"):
+        if st.button("🧪 Generar Test según examen real"):
+            with st.spinner("Generando test..."):
                 preguntas = generar_test_con_criterio_real(seleccion)
-                if preguntas:
-                    st.success("✅ Test generado con éxito.")
-                    for i, pregunta in enumerate(preguntas):
-                        st.markdown(f"### Pregunta {i + 1}")
-                        st.write(pregunta["pregunta"])
-                        st.radio("Selecciona una opción:", options=pregunta["opciones"], key=f"pregunta_{i}")
-                        st.divider()
-                else:
-                    st.error("❌ No se pudieron generar preguntas.")
-    except Exception as e:
-        st.error(f"❌ Error cargando oposiciones: {str(e)}")
+
+            if preguntas:
+                st.success("✅ Test generado con éxito.")
+                for i, pregunta in enumerate(preguntas):
+                    st.markdown(f"### Pregunta {i + 1}")
+                    st.write(pregunta["pregunta"])
+                    st.radio(
+                        "Selecciona una opción:",
+                        options=pregunta["opciones"],
+                        key=f"pregunta_{i}"
+                    )
+                    st.divider()
+
+                # PDF export
+                def exportar_pdf(preguntas):
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+                    c = canvas.Canvas(temp_file.name, pagesize=A4)
+                    width, height = A4
+
+                    c.setFont("Helvetica-Bold", 14)
+                    c.drawString(100, height - 60, "Preguntas del test")
+                    c.setFont("Helvetica", 12)
+                    y = height - 100
+                    for i, p in enumerate(preguntas):
+                        c.drawString(50, y, f"{i+1}. {p['pregunta']}")
+                        y -= 20
+                        for op in p["opciones"]:
+                            c.drawString(70, y, f"- {op}")
+                            y -= 18
+                        y -= 10
+                        if y < 100:
+                            c.showPage()
+                            y = height - 60
+
+                    c.showPage()
+                    c.setFont("Helvetica-Bold", 14)
+                    c.drawString(100, height - 60, "Respuestas correctas")
+                    c.setFont("Helvetica", 12)
+                    y = height - 100
+                    for i, p in enumerate(preguntas):
+                        c.drawString(50, y, f"{i+1}. Respuesta: {p['respuesta']}")
+                        y -= 20
+                        if y < 100:
+                            c.showPage()
+                            y = height - 60
+
+                    c.save()
+                    return temp_file.name
+
+                pdf_path = exportar_pdf(preguntas)
+                with open(pdf_path, "rb") as f:
+                    st.download_button(
+                        label="📄 Descargar test en PDF",
+                        data=f,
+                        file_name="test_generado.pdf",
+                        mime="application/pdf"
+                    )
+            else:
+                st.error("❌ No se pudo generar el test. Inténtalo más tarde.")
