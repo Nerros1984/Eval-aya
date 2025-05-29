@@ -1,6 +1,5 @@
 
 from datetime import datetime
-from pathlib import Path
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 import streamlit as st
@@ -18,12 +17,9 @@ texto_input = st.text_area(" ", height=300, label_visibility="collapsed")
 num_preguntas = st.slider("Número de preguntas a generar:", min_value=3, max_value=20, value=5)
 
 def extraer_json_valido(respuesta):
-    # Elimina ```json y ```
     texto = respuesta.strip().strip("`")
     if texto.startswith("json"):
         texto = texto[len("json"):].strip()
-
-    # Extrae el primer bloque JSON válido
     patron_json = re.search(r'\[\s*{.*?}\s*\]', texto, re.DOTALL)
     if patron_json:
         return patron_json.group(0)
@@ -54,14 +50,43 @@ def generar_preguntas_ia(texto, num_preguntas):
         json_limpio = extraer_json_valido(content)
         preguntas = json.loads(json_limpio)
         return preguntas
+    except:
+        return None
 
-    except json.JSONDecodeError:
-        st.error("❌ Error al interpretar la respuesta como JSON.")
-        st.text(json_limpio)
-        return None
-    except Exception as e:
-        st.error(f"⚠️ Error inesperado: {e}")
-        return None
+def exportar_pdf(preguntas):
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    c = canvas.Canvas(temp_file.name, pagesize=A4)
+    width, height = A4
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(100, height - 60, "Preguntas del test")
+    c.setFont("Helvetica", 12)
+    y = height - 100
+    for i, p in enumerate(preguntas):
+        c.drawString(50, y, f"{i+1}. {p['pregunta']}")
+        y -= 20
+        for op in p["opciones"]:
+            c.drawString(70, y, f"- {op}")
+            y -= 18
+        y -= 10
+        if y < 100:
+            c.showPage()
+            y = height - 60
+
+    c.showPage()
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(100, height - 60, "Respuestas correctas")
+    c.setFont("Helvetica", 12)
+    y = height - 100
+    for i, p in enumerate(preguntas):
+        c.drawString(50, y, f"{i+1}. Respuesta: {p['respuesta']}")
+        y -= 20
+        if y < 100:
+            c.showPage()
+            y = height - 60
+
+    c.save()
+    return temp_file.name
 
 if st.button("🧪 Generar test"):
     if texto_input.strip() == "":
@@ -75,21 +100,19 @@ if st.button("🧪 Generar test"):
             for i, pregunta in enumerate(preguntas):
                 st.markdown(f"### Pregunta {i + 1}")
                 st.write(pregunta["pregunta"])
-
-                respuesta_usuario = st.radio(
+                st.radio(
                     "Selecciona una opción:",
                     options=pregunta["opciones"],
                     key=f"pregunta_{i}"
                 )
-
-                letra_correcta = pregunta["respuesta"]
-                opcion_correcta = next(
-                    (op for op in pregunta["opciones"] if op.startswith(letra_correcta + ":")), None
-                )
-
-                if respuesta_usuario:
-                    if respuesta_usuario == opcion_correcta:
-                        st.success("✅ ¡Correcto!")
-                    else:
-                        st.error(f"❌ Incorrecto. La respuesta correcta era: {opcion_correcta}")
                 st.divider()
+
+            # Botón de exportación a PDF
+            pdf_path = exportar_pdf(preguntas)
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    label="📄 Descargar test en PDF",
+                    data=f,
+                    file_name="test_generado.pdf",
+                    mime="application/pdf"
+                )
