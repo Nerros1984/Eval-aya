@@ -1,15 +1,25 @@
 import gspread
-from google.oauth2.service_account import Credentials
+from oauth2client.service_account import ServiceAccountCredentials
 import streamlit as st
 
-def registrar_en_sheet(nombre_temario, tipo, url_pdf, url_json, fecha):
-    creds_dict = st.secrets["gcp_service_account"]
-    creds = Credentials.from_service_account_info(creds_dict)
+
+def registrar_en_sheet(nombre_temario, tipo_contenido, url_pdf, url_json, fecha):
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        st.secrets["gcp_service_account"],
+        ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    )
     client = gspread.authorize(creds)
+    sheet = client.open("EvaluaYa_base").worksheet("temarios")
+    fila = [nombre_temario, tipo_contenido, url_pdf, url_json, fecha]
+    sheet.append_row(fila)
 
-    # 📌 Ahora accede al archivo correcto
-    spreadsheet = client.open("EvaluaYa_base")
-    worksheet = spreadsheet.worksheet("Temarios")
 
-    nueva_fila = [nombre_temario, tipo, url_pdf, url_json, fecha]
-    worksheet.append_row(nueva_fila)
+def obtener_oposiciones_guardadas():
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        st.secrets["gcp_service_account"],
+        ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    )
+    client = gspread.authorize(creds)
+    sheet = client.open("EvaluaYa_base").worksheet("temarios")
+    datos = sheet.col_values(4)[1:]  # Suponiendo que la columna D tiene las oposiciones
+    return sorted(list(set([op for op in datos if op.strip()])))
