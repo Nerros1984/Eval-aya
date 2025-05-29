@@ -6,28 +6,37 @@ import openai
 import json
 import re
 import tempfile
-from docx import Document
+import unicodedata
+from utils.drive import subir_archivo_a_drive
+from utils.sheets import registrar_en_sheet
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
+
 st.title("🧠 EvalúaYa - Generador de Test por Temario")
+st.markdown("📄 **Sube un archivo DOCX o PDF con tu temario:**")
 
-# --------------------
-# FUNCIONES AUXILIARES
-# --------------------
+archivo_subido = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"])
+tipo_contenido = st.selectbox("¿Qué contiene este archivo?", ["Temario completo", "Resumen", "Tema individual"])
+nombre_temario = st.text_input("📝 Nombre del temario (Ej: Administrativo Junta Andalucía)")
 
-def leer_docx(doc_file):
-    doc = Document(doc_file)
-    texto = "\n".join([p.text for p in doc.paragraphs if p.text.strip() != ""])
-    return texto
+num_preguntas = st.slider("Número de preguntas a generar:", min_value=3, max_value=25, value=5)
+
+
+def normalizar_nombre(nombre):
+    nfkd = unicodedata.normalize('NFKD', nombre)
+    solo_ascii = nfkd.encode('ASCII', 'ignore').decode('utf-8')
+    return solo_ascii.lower().replace(" ", "_")
+
 
 def extraer_json_valido(respuesta):
     texto = respuesta.strip().strip("`")
     if texto.startswith("json"):
         texto = texto[len("json"):].strip()
-    patron_json = re.search(r'$begin:math:display$\\s*{.*?}\\s*$end:math:display$', texto, re.DOTALL)
+    patron_json = re.search(r'\[\s*{.*?}\s*\]', texto, re.DOTALL)
     if patron_json:
         return patron_json.group(0)
     return texto
+
 
 def generar_preguntas_ia(texto, num_preguntas):
     prompt = (
@@ -56,6 +65,7 @@ def generar_preguntas_ia(texto, num_preguntas):
         return preguntas
     except:
         return None
+
 
 def exportar_pdf(preguntas):
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
@@ -92,82 +102,52 @@ def exportar_pdf(preguntas):
     c.save()
     return temp_file.name
 
-# --------------------
-# INTERFAZ PRINCIPAL
-# --------------------
 
-texto_input = ""
-archivo = st.file_uploader("📄 O sube un documento Word (.docx)", type=["docx"])
-if archivo:
-    texto_input = leer_docx(archivo)
-    st.success("Documento cargado correctamente.")
-    st.write(texto_input[:800] + "...")
-
-texto_manual = st.text_area("✍️ O escribe directamente el contenido del temario:", height=300)
-if texto_manual.strip():
-    texto_input = texto_manual
-
-num_preguntas = st.slider("Número de preguntas a generar:", min_value=3, max_value=25, value=5)
-
-# Estados persistentes
-if "respuestas_usuario" not in st.session_state:
-    st.session_state["respuestas_usuario"] = {}
-
-if "preguntas_generadas" not in st.session_state:
-    st.session_state["preguntas_generadas"] = []
-
-# Botón de generar test
-if st.button("🧪 Generar test"):
-    if texto_input.strip() == "":
-        st.warning("Debes introducir contenido para generar el test.")
-    else:
+if archivo_subido and nombre_temario.strip():
+    contenido_archivo = archivo_subido.read().decode("utf-8", errors="ignore")
+    if st.button("🧪 Generar test"):
         with st.spinner("Generando test con IA... espera unos segundos."):
-            preguntas = generar_preguntas_ia(texto_input, num_preguntas)
+            preguntas = generar_preguntas_ia(contenido_archivo, num_preguntas)
 
         if preguntas:
-            st.session_state["preguntas_generadas"] = preguntas
-            st.session_state["respuestas_usuario"] = {}
             st.success("✅ Test generado con éxito.")
+            for i, pregunta in enumerate(preguntas):
+                st.markdown(f"### Pregunta {i + 1}")
+                st.write(pregunta["pregunta"])
+                st.radio(
+                    "Selecciona una opción:",
+                    options=pregunta["opciones"],
+                    key=f"pregunta_{i}"
+                )
+                st.divider()
 
-# Mostrar preguntas y respuestas
-if st.session_state["preguntas_generadas"]:
-    preguntas = st.session_state["preguntas_generadas"]
-    respuestas_usuario = st.session_state["respuestas_usuario"]
+            pdf_path = exportar_pdf(preguntas)
+            json_data = json.dumps(preguntas, indent=2)
+            json_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+            json_temp.write(json_data.encode("utf-8"))
+            json_temp.close()
 
-    st.markdown("## 🧠 Test")
-    for i, pregunta in enumerate(preguntas):
-        st.markdown(f"**{i+1}. {pregunta['pregunta']}**")
-        respuesta = st.radio(
-            f"Selecciona una opción:",
-            options=pregunta["opciones"],
-            key=f"pregunta_{i}"
-        )
-        respuestas_usuario[i] = respuesta
-        st.divider()
+            # Subida de archivos
+            temario_normalizado = normalizar_nombre(nombre_temario)
+            url_pdf = subir_archivo_a_drive(pdf_path, temario_normalizado)
+            url_json = subir_archivo_a_drive(json_temp.name, temario_normalizado)
 
-    # Botón para corregir test
-    if st.button("✅ Corregir"):
-        st.markdown("## 📊 Resultados del test")
-        aciertos = 0
-        for i, pregunta in enumerate(preguntas):
-            correcta = pregunta["opciones"][["A", "B", "C", "D"].index(pregunta["respuesta"])]
-            elegida = respuestas_usuario.get(i, "")
-            if elegida == correcta:
-                st.markdown(f"✅ **{i+1}. Correcta** — {pregunta['pregunta']}")
-                aciertos += 1
-            else:
-                st.markdown(f"❌ **{i+1}. Incorrecta** — {pregunta['pregunta']}")
-                st.markdown(f"- Tu respuesta: {elegida if elegida else 'Sin responder'}")
-                st.markdown(f"- 🔵 Correcta: {correcta}")
-
-        st.success(f"Puntuación final: {aciertos}/{len(preguntas)}")
-
-        # Botón para descargar PDF
-        pdf_path = exportar_pdf(preguntas)
-        with open(pdf_path, "rb") as f:
-            st.download_button(
-                label="📄 Descargar test en PDF",
-                data=f,
-                file_name="test_generado.pdf",
-                mime="application/pdf"
+            registrar_en_sheet(
+                nombre_temario,
+                tipo_contenido,
+                url_pdf,
+                url_json,
+                datetime.now().strftime("%Y-%m-%d %H:%M")
             )
+
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    label="📄 Descargar test en PDF",
+                    data=f,
+                    file_name="test_generado.pdf",
+                    mime="application/pdf"
+                )
+        else:
+            st.error("❌ No se pudo generar el test. Intenta con otro contenido.")
+else:
+    st.info("🔼 Sube un archivo válido y escribe un nombre de temario para comenzar.")
