@@ -3,16 +3,22 @@ import unicodedata
 import os
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
-import json
+from oauth2client.service_account import ServiceAccountCredentials
+import streamlit as st
 
 def autenticar_drive():
+    scope = ['https://www.googleapis.com/auth/drive']
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+        st.secrets["gcp_service_account"],
+        scope
+    )
     gauth = GoogleAuth()
-    gauth.LocalWebserverAuth()
+    gauth.credentials = credentials
     return GoogleDrive(gauth)
 
 def normalizar_nombre(nombre):
     nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('utf-8')
-    nombre = re.sub(r'[^a-zA-Z0-9\\s]', '', nombre)
+    nombre = re.sub(r'[^a-zA-Z0-9\s]', '', nombre)
     nombre = nombre.lower().strip().replace(' ', '_')
     return nombre
 
@@ -45,13 +51,3 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario):
     archivo_drive.SetContentFile(ruta_archivo)
     archivo_drive.Upload()
     return archivo_drive['alternateLink']
-
-# Simulación: cargar lista de oposiciones (de momento, fija)
-def cargar_preguntas_desde_drive(lista=False):
-    if lista:
-        return ["Auxiliar Administrativo – Ayuntamiento de Sevilla"]
-    return []
-
-# Exporta un test generado como JSON
-def exportar_test_json(preguntas):
-    return json.dumps(preguntas, indent=2)
