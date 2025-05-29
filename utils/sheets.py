@@ -8,7 +8,7 @@ import re
 import tempfile
 import unicodedata
 from utils.drive import subir_archivo_a_drive
-from utils.sheets import registrar_en_sheet
+
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
 
