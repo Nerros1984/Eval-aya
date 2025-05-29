@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -11,10 +10,18 @@ import tempfile
 st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
 
 st.title("🧠 EvalúaYa - Generador de Test por Temario")
-st.markdown("✍️ **Introduce el contenido del temario** (puede ser un párrafo o más):")
+st.markdown(":pencil: **Introduce el contenido del temario** (puede ser un párrafo o más):")
 
 texto_input = st.text_area(" ", height=300, label_visibility="collapsed")
 num_preguntas = st.slider("Número de preguntas a generar:", min_value=3, max_value=20, value=5)
+
+# Estado para respuestas del usuario
+if 'respuestas_usuario' not in st.session_state:
+    st.session_state['respuestas_usuario'] = {}
+if 'preguntas' not in st.session_state:
+    st.session_state['preguntas'] = []
+if 'corregido' not in st.session_state:
+    st.session_state['corregido'] = False
 
 def extraer_json_valido(respuesta):
     texto = respuesta.strip().strip("`")
@@ -94,25 +101,45 @@ if st.button("🧪 Generar test"):
     else:
         with st.spinner("Generando test con IA... espera unos segundos."):
             preguntas = generar_preguntas_ia(texto_input, num_preguntas)
-
         if preguntas:
             st.success("✅ Test generado con éxito.")
-            for i, pregunta in enumerate(preguntas):
-                st.markdown(f"### Pregunta {i + 1}")
-                st.write(pregunta["pregunta"])
-                st.radio(
-                    "Selecciona una opción:",
-                    options=pregunta["opciones"],
-                    key=f"pregunta_{i}"
-                )
-                st.divider()
+            st.session_state['preguntas'] = preguntas
+            st.session_state['respuestas_usuario'] = {}
+            st.session_state['corregido'] = False
 
-            # Botón de exportación a PDF
-            pdf_path = exportar_pdf(preguntas)
-            with open(pdf_path, "rb") as f:
-                st.download_button(
-                    label="📄 Descargar test en PDF",
-                    data=f,
-                    file_name="test_generado.pdf",
-                    mime="application/pdf"
-                )
+if st.session_state['preguntas']:
+    st.subheader("🔢 Test")
+    for i, pregunta in enumerate(st.session_state['preguntas']):
+        st.markdown(f"**{i+1}. {pregunta['pregunta']}**")
+        seleccion = st.radio(
+            "Selecciona una opción:",
+            options=["A", "B", "C", "D"],
+            key=f"pregunta_{i}"
+        )
+        st.session_state['respuestas_usuario'][i] = seleccion
+        st.divider()
+
+    if st.button("✅ Corregir test"):
+        st.session_state['corregido'] = True
+
+    if st.session_state['corregido']:
+        st.subheader("📊 Resultados")
+        aciertos = 0
+        for i, pregunta in enumerate(st.session_state['preguntas']):
+            correcta = pregunta['respuesta']
+            elegida = st.session_state['respuestas_usuario'].get(i)
+            if elegida == correcta:
+                st.success(f"{i+1}. Correcta: {pregunta['pregunta']}")
+                aciertos += 1
+            else:
+                st.error(f"{i+1}. Incorrecta: {pregunta['pregunta']}\n\nTu respuesta: {elegida} / Correcta: {correcta}")
+        st.markdown(f"**Puntuación final:** {aciertos}/{len(st.session_state['preguntas'])}")
+
+    pdf_path = exportar_pdf(st.session_state['preguntas'])
+    with open(pdf_path, "rb") as f:
+        st.download_button(
+            label="📄 Descargar test en PDF",
+            data=f,
+            file_name="test_generado.pdf",
+            mime="application/pdf"
+        )
