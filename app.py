@@ -30,21 +30,20 @@ def extraer_json_valido(respuesta):
     return texto
 
 def generar_preguntas_ia(texto, num_preguntas):
-    prompt = f"""Eres un generador de preguntas tipo test. A partir del siguiente texto:
-
-"""{texto}"""
-
-Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opciones, y una de ellas debe ser correcta. Devuelve solo el JSON con esta estructura:
-
-[
-  {{
-    "pregunta": "Texto de la pregunta",
-    "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
-    "respuesta": "Letra de la opción correcta (A, B, C o D)"
-  }},
-  ...
-]
-"""
+    prompt = (
+        f"Eres un generador de preguntas tipo test. A partir del siguiente texto:\n\n"
+        f"{texto}\n\n"
+        f"Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opciones, "
+        "y una de ellas debe ser correcta. Devuelve solo el JSON con esta estructura:\n\n"
+        "[\n"
+        "  {\n"
+        "    \"pregunta\": \"Texto de la pregunta\",\n"
+        "    \"opciones\": [\"Opción A\", \"Opción B\", \"Opción C\", \"Opción D\"],\n"
+        "    \"respuesta\": \"Letra de la opción correcta (A, B, C o D)\"\n"
+        "  },\n"
+        "  ...\n"
+        "]"
+    )
     try:
         client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
         completion = client.chat.completions.create(
@@ -56,7 +55,7 @@ Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opc
         preguntas = json.loads(json_limpio)
         return preguntas
 
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         st.error("❌ Error al interpretar la respuesta como JSON.")
         st.text(json_limpio)
         return None
