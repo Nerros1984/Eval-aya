@@ -33,7 +33,8 @@ Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opc
     "respuesta": "Letra de la opción correcta (A, B, C o D)"
   }},
   ...
-]"""
+]
+"""
     try:
         client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
         completion = client.chat.completions.create(
@@ -41,10 +42,17 @@ Genera {num_preguntas} preguntas tipo test en formato JSON con exactamente 4 opc
             messages=[{"role": "user", "content": prompt}]
         )
         content = completion.choices[0].message.content
+        st.code(content, language="json")  # Mostrar en la interfaz lo que responde la IA
+
         preguntas = json.loads(content)
         return preguntas
-    except Exception:
-        st.error("⚠️ No ha sido posible generar el test. Inténtalo más tarde.")
+
+    except json.JSONDecodeError as e:
+        st.error("❌ Error al interpretar la respuesta como JSON.")
+        st.text(content)  # Mostrar la respuesta cruda de la IA
+        return None
+    except Exception as e:
+        st.error(f"⚠️ Error inesperado: {e}")
         return None
 
 def exportar_test_y_soluciones(preguntas):
