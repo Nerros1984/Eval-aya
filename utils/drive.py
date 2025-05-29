@@ -6,6 +6,7 @@ from pydrive.drive import GoogleDrive
 from oauth2client.service_account import ServiceAccountCredentials
 import streamlit as st
 
+# IDs de las carpetas raíz en Google Drive
 CARPETA_TEMARIOS = "1x08mfjA7JhnVk9OxvXJD54MLmtdZDCJb"
 CARPETA_TEMAS_JSON = "1popTRkA-EjI8_4WqKPjkldWVpCYsJJjm"
 CARPETA_TEST_JSON = "1dNkIuLDfV_qGmrCepkFYo5IWlfFwkl7w"
@@ -23,7 +24,7 @@ def autenticar_drive():
 
 def normalizar_nombre(nombre):
     nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('utf-8')
-    nombre = re.sub(r'[^a-zA-Z0-9\s]', '', nombre)
+    nombre = re.sub(r'[^a-zA-Z0-9\\s]', '', nombre)
     nombre = nombre.lower().strip().replace(' ', '_')
     return nombre
 
@@ -45,9 +46,9 @@ def obtener_o_crear_carpeta(drive, nombre_temario, carpeta_raiz_id=None):
     carpeta.Upload()
     return carpeta['id']
 
-def subir_archivo_a_drive(ruta_archivo, nombre_temario):
+def subir_archivo_a_drive(ruta_archivo, nombre_temario, carpeta_raiz_id):
     drive = autenticar_drive()
-    carpeta_id = obtener_o_crear_carpeta(drive, nombre_temario)
+    carpeta_id = obtener_o_crear_carpeta(drive, nombre_temario, carpeta_raiz_id)
     nombre_archivo = os.path.basename(ruta_archivo)
     archivo_drive = drive.CreateFile({
         'title': nombre_archivo,
