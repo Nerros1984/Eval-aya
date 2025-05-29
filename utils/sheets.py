@@ -10,7 +10,8 @@ def registrar_en_sheet(nombre_temario, tipo_contenido, url_pdf, url_json, fecha)
     )
     client = gspread.authorize(creds)
     sheet = client.open("EvaluaYa_base").worksheet("temarios")
-    fila = [nombre_temario, tipo_contenido, url_pdf, url_json, fecha]
+    
+    fila = [tipo_contenido, nombre_temario, url_pdf, url_json, "", fecha]
     sheet.append_row(fila)
 
 
