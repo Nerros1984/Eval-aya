@@ -44,3 +44,15 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario):
     archivo_drive.SetContentFile(ruta_archivo)
     archivo_drive.Upload()
     return archivo_drive['alternateLink']
+
+import json
+
+# Simulación: cargar lista de oposiciones (de momento, fija)
+def cargar_preguntas_desde_drive(lista=False):
+    if lista:
+        return ["Auxiliar Administrativo – Ayuntamiento de Sevilla"]
+    return []
+
+# Exporta un test generado como JSON
+def exportar_test_json(preguntas):
+    return json.dumps(preguntas, indent=2)
