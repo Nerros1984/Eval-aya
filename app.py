@@ -1,84 +1,61 @@
-
-import streamlit as st
 from datetime import datetime
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+import streamlit as st
+import openai
 import json
-from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
-from utils.test import generar_test_con_criterio_real, obtener_criterio_test
-from utils.drive import subir_archivo_a_drive
+import re
 import tempfile
 import unicodedata
+from utils.drive import subir_archivo_a_drive
+from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test por Temario", layout="centered")
 
-# Estado inicial
-if "modo" not in st.session_state:
-    st.session_state.modo = None
-if "archivo" not in st.session_state:
-    st.session_state.archivo = None
-
 st.title("🧠 EvalúaYa - Generador de Test por Temario")
 
-# Botones de selección
-st.markdown("### ¿Qué deseas hacer?")
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("📂 Subir nuevo temario"):
-        st.session_state.modo = "subir"
-with col2:
-    if st.button("✨ Usar oposición guardada"):
-        st.session_state.modo = "usada"
+# Elección de flujo
+flujo = st.radio("", ["📂 Subir nuevo temario", "✨ Usar oposición guardada"])
 
-# -----------------------------------
-# SUBIR NUEVO TEMARIO
-# -----------------------------------
-if st.session_state.modo == "subir":
-    st.subheader("📂 Subida de Temario")
-    archivo = st.file_uploader("📄 Sube un archivo DOCX o PDF con tu temario:", type=["pdf", "docx"])
-    if archivo:
-        st.session_state.archivo = archivo
+CARPETA_TEMARIOS_ID = "1x08mfjA7JhnVk9OxvXJD54MLmtdZDCJb"
 
+if flujo == "📂 Subir nuevo temario":
+    st.subheader("📄 Subida de Temario")
+    st.markdown("**📁 Sube un archivo DOCX o PDF con tu temario:**")
+
+    archivo_subido = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"])
     tipo_contenido = st.selectbox("🔎 ¿Qué contiene este archivo?", ["Temario completo", "Resumen", "Tema individual"])
     nombre_oposicion = st.text_input("📜 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
 
-    if st.session_state.archivo and nombre_oposicion:
-        if st.button("✅ Guardar y registrar temario"):
-            # Guardar archivo en carpeta 'temarios'
-            with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                tmp.write(st.session_state.archivo.read())
-                tmp_path = tmp.name
+    if st.button("✅ Guardar y registrar temario"):
+        if archivo_subido and nombre_oposicion.strip():
+            with st.spinner("📤 Subiendo archivo y registrando..."):
+                tmp_path = f"/tmp/{archivo_subido.name}"
+                with open(tmp_path, "wb") as f:
+                    f.write(archivo_subido.getbuffer())
 
-            url_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, carpeta_padre_id="1x08mfjA7JhnVk9OxvXJD54MLmtdZDCJb")
+                url_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, CARPETA_TEMARIOS_ID)
 
-            registrar_en_sheet(
-                nombre_oposicion,
-                tipo_contenido,
-                url_drive,
-                "",  # json aún no generado
-                datetime.now().strftime("%Y-%m-%d %H:%M")
-            )
-            st.success("✅ Temario guardado con éxito.")
+                registrar_en_sheet(
+                    nombre_oposicion,
+                    tipo_contenido,
+                    url_drive,
+                    "",
+                    datetime.now().strftime("%Y-%m-%d %H:%M")
+                )
 
-# -----------------------------------
-# USAR OPOSICIÓN GUARDADA
-# -----------------------------------
-elif st.session_state.modo == "usada":
+            st.success("✅ Temario registrado correctamente.")
+        else:
+            st.warning("⚠️ Debes subir un archivo y escribir un nombre de oposición para continuar.")
+
+elif flujo == "✨ Usar oposición guardada":
     st.subheader("🎯 Generar Test Oficial")
     oposiciones = obtener_oposiciones_guardadas()
+
     if not oposiciones:
-        st.info("ℹ️ Aún no hay temarios registrados. Sube uno primero.")
+        st.info("ℹ️ Aún no hay oposiciones registradas. Sube un temario primero.")
     else:
         seleccion = st.selectbox("Selecciona una oposición:", list(oposiciones.keys()))
-        if seleccion:
-            criterio = obtener_criterio_test(seleccion)
-            st.markdown(f"🧾 **Criterio de test para {seleccion}**: {criterio}")
-            if st.button("🧪 Generar Test según examen real"):
-                preguntas = generar_test_con_criterio_real(seleccion)
-                if preguntas:
-                    st.success("✅ Test generado con éxito.")
-                    for i, p in enumerate(preguntas):
-                        st.markdown(f"**{i+1}. {p['pregunta']}**")
-                        for opcion in p["opciones"]:
-                            st.markdown(f"- {opcion}")
-                        st.markdown(f"✅ Respuesta correcta: **{p['respuesta']}**")
-                else:
-                    st.warning("⚠️ No se encontraron preguntas suficientes.")
+        st.markdown(f"📝 Has seleccionado: **{seleccion}**")
+
+        st.button("🧪 Generar Test según examen real")
