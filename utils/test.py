@@ -1,31 +1,52 @@
-
-import os
 import json
-import re
-import unicodedata
-from docx import Document
+import random
+import os
+from datetime import datetime
 
-def extraer_temarios_docx(path_docx):
-    document = Document(path_docx)
-    texto = "\n".join([p.text for p in document.paragraphs])
-    return texto
+# Carpeta de destino en Drive
+CARPETA_TEST_JSON = "1dNkIuLDfV_qGmrCepkFYo5IWlfFwkl7w"
 
-def extraer_temas_de_texto(texto):
-    texto = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('utf-8')
-    patron_tema = re.compile(r'(TEMA \d+[.:\-\s]+)(.+?)(?=\nTEMA \d+|\Z)', re.DOTALL | re.IGNORECASE)
-    coincidencias = patron_tema.findall(texto)
-    temas = []
-    for i, (titulo, contenido) in enumerate(coincidencias, 1):
-        temas.append({
-            "numero": i,
-            "titulo": titulo.strip(),
-            "contenido": contenido.strip()
-        })
-    return temas
+def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
+    """
+    Genera un test simulado desde un tema específico.
+    """
+    preguntas = [
+        {
+            "pregunta": f"{tema} - Pregunta {i+1}",
+            "opciones": [f"Opción {j+1}" for j in range(4)],
+            "respuesta_correcta": "Opción 1"
+        }
+        for i in range(num_preguntas)
+    ]
 
-def guardar_temas_json(temas, nombre_oposicion, carpeta_destino="data/temas_json"):
-    os.makedirs(carpeta_destino, exist_ok=True)
-    ruta = os.path.join(carpeta_destino, f"{nombre_oposicion}.json")
-    with open(ruta, "w", encoding="utf-8") as f:
-        json.dump(temas, f, indent=2, ensure_ascii=False)
-    return ruta
+    nombre_archivo = f"{nombre_oposicion}_{tema}_{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
+    ruta_local = os.path.join("test_generados", nombre_archivo)
+    os.makedirs("test_generados", exist_ok=True)
+
+    with open(ruta_local, "w") as f:
+        json.dump(preguntas, f, indent=2)
+
+    return ruta_local, preguntas
+
+
+def generar_test_examen_completo(nombre_oposicion, num_preguntas):
+    """
+    Genera un test simulado tipo examen real a partir de toda la oposición.
+    """
+    preguntas = [
+        {
+            "pregunta": f"{nombre_oposicion} - Pregunta {i+1}",
+            "opciones": [f"Opción {j+1}" for j in range(4)],
+            "respuesta_correcta": "Opción 1"
+        }
+        for i in range(num_preguntas)
+    ]
+
+    nombre_archivo = f"{nombre_oposicion}_examen_completo_{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
+    ruta_local = os.path.join("test_generados", nombre_archivo)
+    os.makedirs("test_generados", exist_ok=True)
+
+    with open(ruta_local, "w") as f:
+        json.dump(preguntas, f, indent=2)
+
+    return ruta_local, preguntas
