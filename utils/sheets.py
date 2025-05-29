@@ -21,5 +21,13 @@ def obtener_oposiciones_guardadas():
     )
     client = gspread.authorize(creds)
     sheet = client.open("EvaluaYa_base").worksheet("temarios")
-    datos = sheet.col_values(1)[1:]  # Suponiendo que la columna A tiene las oposiciones
-    return sorted(list(set([op for op in datos if op.strip()])))
+    datos = sheet.col_values(1)[1:]  # Columna A: "oposicion", omite cabecera
+
+    # Limpiar y normalizar las oposiciones
+    oposiciones = set()
+    for op in datos:
+        op_normalizada = op.strip()
+        if op_normalizada:
+            oposiciones.add(op_normalizada)
+
+    return sorted(list(oposiciones))
