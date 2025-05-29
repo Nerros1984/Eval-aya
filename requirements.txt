@@ -1,6 +1,6 @@
 streamlit
 openai
-fpdf2
-reportlab
-python-docx
-pydrive
+gspread
+google-auth
+google-auth-oauthlib
+oauth2client
