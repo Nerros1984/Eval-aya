@@ -2,12 +2,14 @@ import os
 import json
 import random
 from datetime import datetime
-from openai import OpenAI
+import streamlit as st
+import openai
+
 from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
 from utils.pdf import generar_pdf_test
 from utils.estructura import estructura_bloques, clasificacion_temas
 
-openai = OpenAI()
+openai.api_key = st.secrets["openai_api_key"]
 
 # --- Generador con OpenAI ---
 def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
