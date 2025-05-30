@@ -59,6 +59,15 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario, carpeta_raiz_id):
     archivo_drive.Upload()
     return archivo_drive['alternateLink']
 
+def obtener_oposiciones_con_tema_json():
+    drive = autenticar_drive()
+    resultados = drive.ListFile({
+        'q': f"'{CARPETA_TEMAS_JSON}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    }).GetList()
+
+    nombres_oposiciones = [carpeta['title'] for carpeta in resultados]
+    return nombres_oposiciones
+
 def descargar_archivo_de_drive(nombre_archivo, carpeta_drive_id, path_local_destino):
     drive = autenticar_drive()
     nombre_oposicion = nombre_archivo.replace("temas_", "").replace(".json", "")
