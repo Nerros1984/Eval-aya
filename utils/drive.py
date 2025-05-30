@@ -1,14 +1,13 @@
 # utils/drive.py
 
+import os
 import re
 import unicodedata
-import os
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 from oauth2client.service_account import ServiceAccountCredentials
 import streamlit as st
 
-# IDs de las carpetas raíz en Google Drive
 CARPETA_TEMARIOS = "1x08mfjA7JhnVk9OxvXJD54MLmtdZDCJb"
 CARPETA_TEMAS_JSON = "1popTRkA-EjI8_4WqKPjkldWVpCYsJJjm"
 CARPETA_TEST_JSON = "1dNkIuLDfV_qGmrCepkFYo5IWlfFwkl7w"
@@ -17,7 +16,8 @@ CARPETA_TEST_PDF = "1dNkIuLDfV_qGmrCepkFYo5IWlfFwkl7w"
 def autenticar_drive():
     scope = ['https://www.googleapis.com/auth/drive']
     credentials = ServiceAccountCredentials.from_json_keyfile_dict(
-        st.secrets["gcp_service_account"], scope
+        st.secrets["gcp_service_account"],
+        scope
     )
     gauth = GoogleAuth()
     gauth.credentials = credentials
@@ -61,28 +61,22 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario, carpeta_raiz_id):
 
 def descargar_archivo_de_drive(nombre_archivo, carpeta_drive_id, path_local_destino):
     drive = autenticar_drive()
-    subcarpeta_nombre = normalizar_nombre(nombre_archivo.replace("temas_", "").replace(".json", ""))
+    nombre_oposicion = nombre_archivo.replace("temas_", "").replace(".json", "")
+    subcarpeta_nombre = normalizar_nombre(nombre_oposicion)
+
     query_carpeta = f"'{carpeta_drive_id}' in parents and title = '{subcarpeta_nombre}' and mimeType = 'application/vnd.google-apps.folder'"
     subcarpetas = drive.ListFile({'q': query_carpeta, 'maxResults': 1}).GetList()
+
     if not subcarpetas:
         return False
+
     subcarpeta_id = subcarpetas[0]['id']
     query = f"'{subcarpeta_id}' in parents and title = '{nombre_archivo}' and trashed = false"
     resultados = drive.ListFile({'q': query, 'maxResults': 1}).GetList()
+
     if resultados:
         archivo = resultados[0]
         archivo.GetContentFile(path_local_destino)
         return path_local_destino
     else:
         return False
-
-def obtener_oposiciones_con_tema_json():
-    drive = autenticar_drive()
-    carpetas = drive.ListFile({
-        'q': f"'{CARPETA_TEMAS_JSON}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-    }).GetList()
-    oposiciones = []
-    for carpeta in carpetas:
-        nombre = carpeta['title'].replace("_", " ").title()
-        oposiciones.append(nombre)
-    return sorted(oposiciones)
