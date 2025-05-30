@@ -10,23 +10,28 @@ def generar_pdf_test(nombre_oposicion, preguntas, nombre_base):
     pdf.cell(200, 10, txt=f"Examen Simulado - {nombre_oposicion}", ln=True, align="C")
     pdf.ln(10)
 
+    # Incluir el test completo
     for idx, pregunta in enumerate(preguntas, 1):
         if not isinstance(pregunta, dict) or 'pregunta' not in pregunta:
             continue
+        pdf.set_font("Arial", style="B", size=12)
         pdf.multi_cell(0, 10, f"{idx}. {pregunta['pregunta']}")
+        pdf.set_font("Arial", size=12)
         for opcion in pregunta.get("opciones", []):
             pdf.cell(10)
             pdf.multi_cell(0, 10, f"- {opcion}")
         pdf.ln(5)
 
+    # Incluir hoja de soluciones
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(200, 10, txt="Hoja de respuestas", ln=True, align="C")
+    pdf.cell(200, 10, txt="Hoja de Respuestas", ln=True, align="C")
     pdf.ln(10)
 
     for idx, pregunta in enumerate(preguntas, 1):
         if not isinstance(pregunta, dict) or 'respuesta_correcta' not in pregunta:
             continue
+        pdf.set_font("Arial", size=12)
         pdf.cell(0, 10, f"{idx}. {pregunta['respuesta_correcta']}", ln=True)
 
     os.makedirs("test_generados", exist_ok=True)
