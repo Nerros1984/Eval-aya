@@ -2,9 +2,11 @@ import json
 import os
 import random
 from datetime import datetime
-from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON
+
+from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
 from utils.pdf import generar_pdf_test
 from utils.estructura import estructura_bloques, clasificacion_temas
+
 
 def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
     preguntas = [
@@ -20,18 +22,15 @@ def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
     ruta_local = os.path.join("test_generados", f"{nombre_archivo}.json")
     os.makedirs("test_generados", exist_ok=True)
 
-    with open(ruta_local, "w") as f:
+    with open(ruta_local, "w", encoding="utf-8") as f:
         json.dump(preguntas, f, indent=2, ensure_ascii=False)
 
     subir_archivo_a_drive(ruta_local, CARPETA_TEST_JSON)
-    generar_pdf_test(nombre_oposicion, preguntas, nombre_archivo)
-
     return ruta_local, preguntas
+
 
 def generar_test_examen_completo(nombre_oposicion, temas_dict):
     bloques = {k: [] for k in estructura_bloques}
-    bloques["otros"] = []
-
     for tema, preguntas in temas_dict.items():
         bloque = clasificacion_temas.get(tema, "otros")
         bloques[bloque].extend(preguntas)
@@ -48,10 +47,12 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
     ruta_local_json = os.path.join("test_generados", f"{nombre_archivo}.json")
     os.makedirs("test_generados", exist_ok=True)
 
-    with open(ruta_local_json, "w") as f:
+    with open(ruta_local_json, "w", encoding="utf-8") as f:
         json.dump(preguntas_finales, f, indent=2, ensure_ascii=False)
 
-    subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
-    generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
+    ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
 
-    return ruta_local_json, preguntas_finales
+    subir_archivo_a_drive(ruta_local_json, CARPETA_TEST_JSON)
+    subir_archivo_a_drive(ruta_pdf, CARPETA_TEST_PDF)
+
+    return ruta_local_json, ruta_pdf, preguntas_finales
