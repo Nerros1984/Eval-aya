@@ -51,7 +51,7 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
     with open(ruta_local_json, "w") as f:
         json.dump(preguntas_finales, f, indent=2, ensure_ascii=False)
 
-    subir_archivo_a_drive(ruta_local_json, CARPETA_TEST_JSON)
+    subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
     generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
 
     return ruta_local_json, preguntas_finales
