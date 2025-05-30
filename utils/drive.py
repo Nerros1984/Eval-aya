@@ -60,16 +60,30 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario, carpeta_raiz_id):
 
 def descargar_archivo_de_drive(nombre_archivo, carpeta_drive_id, path_local_destino):
     """
-    Busca un archivo por nombre dentro de una carpeta de Drive y lo descarga al path local indicado.
+    Busca el archivo dentro de una subcarpeta (por oposición) en la carpeta principal de Drive
+    y lo descarga al path local indicado.
     """
-    drive = autenticar_drive()  # ← FALTA ESTO
-
-    query = f"'{carpeta_drive_id}' in parents and title = '{nombre_archivo}' and trashed = false"
-    resultados = drive.ListFile({'q': query, 'maxResults': 1}).GetList()
+    drive = autenticar_drive()
     
+    # Obtener nombre normalizado de subcarpeta
+    subcarpeta_nombre = normalizar_nombre(nombre_archivo.replace("temas_", "").replace(".json", ""))
+    
+    # Buscar subcarpeta dentro de carpeta_drive_id
+    query_carpeta = f"'{carpeta_drive_id}' in parents and title = '{subcarpeta_nombre}' and mimeType = 'application/vnd.google-apps.folder'"
+    subcarpetas = drive.ListFile({'q': query_carpeta, 'maxResults': 1}).GetList()
+
+    if not subcarpetas:
+        return False
+
+    subcarpeta_id = subcarpetas[0]['id']
+
+    # Buscar archivo dentro de esa subcarpeta
+    query = f"'{subcarpeta_id}' in parents and title = '{nombre_archivo}' and trashed = false"
+    resultados = drive.ListFile({'q': query, 'maxResults': 1}).GetList()
+
     if resultados:
         archivo = resultados[0]
         archivo.GetContentFile(path_local_destino)
         return path_local_destino
     else:
-        return None
+        return False
