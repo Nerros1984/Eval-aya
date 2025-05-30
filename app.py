@@ -35,7 +35,7 @@ if modo == "Usar temario guardado":
         if descargar_archivo_de_drive(nombre_archivo, "1popTRkA-EjI8_4WqKPjkldWVpCYsJJjm", path_local):
             st.text_input("Ruta al archivo JSON del temario", path_local)
 
-            if st.button("🗓️ Generar test"):
+            if st.button("Generar test"):
                 try:
                     with open(path_local, 'r', encoding='utf-8') as f:
                         temas_dict = json.load(f)
