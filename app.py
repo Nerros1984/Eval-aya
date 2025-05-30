@@ -3,7 +3,7 @@ import os
 import json
 import docx2txt
 from utils.drive import subir_archivo_a_drive, descargar_archivo_de_drive, CARPETA_TEMAS_JSON
-from utils.sheets import guardar_en_sheet, obtener_oposiciones_guardadas
+from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
 from utils.test import generar_test_desde_tema, generar_test_examen_completo
 from utils.temas import extraer_temas_de_texto, guardar_temas_json, cargar_temas_desde_json_local
 
