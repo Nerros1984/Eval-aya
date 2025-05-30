@@ -46,7 +46,7 @@ def obtener_o_crear_carpeta(drive, nombre_temario, carpeta_raiz_id=None):
     carpeta.Upload()
     return carpeta['id']
 
-def subir_archivo_a_drive(ruta_archivo, nombre_temario, carpeta_raiz_id):
+def subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON):
     drive = autenticar_drive()
     carpeta_id = obtener_o_crear_carpeta(drive, nombre_temario, carpeta_raiz_id)
     nombre_archivo = os.path.basename(ruta_archivo)
