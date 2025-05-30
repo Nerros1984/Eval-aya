@@ -1,80 +1,70 @@
 import streamlit as st
-import tempfile
 import os
 import json
-from utils.drive import subir_archivo_a_drive, descargar_json_de_drive, CARPETA_TEMARIOS, CARPETA_TEMAS_JSON
-from utils.sheets import registrar_temario_en_sheets, obtener_oposiciones_guardadas
+import docx2txt
+from utils.drive import subir_archivo_a_drive, descargar_archivo_de_drive, CARPETA_TEMAS_JSON
+from utils.sheets import guardar_en_sheet, obtener_oposiciones_guardadas
 from utils.test import generar_test_desde_tema, generar_test_examen_completo
-from utils.temas import extraer_temas_de_texto, guardar_temas_json
+from utils.temas import extraer_temas_de_texto, guardar_temas_json, cargar_temas_desde_json_local
 
-st.set_page_config(page_title="EvalúaYa - Generador de Test de Oposiciones")
-st.title("📘 EvalúaYa - Generador de Test de Oposiciones")
+st.set_page_config(page_title="Generador de Test por Temario", layout="centered")
+st.title("📘 EvaluáYa - Generador de Test de Oposiciones")
 
-modo = st.radio("", ["📁 Subir nuevo temario", "🔅 Usar oposición guardada"], horizontal=True)
+modo = st.radio("", ["📄 Subir nuevo temario", "🌟 Usar oposición guardada"])
 
-if modo == "📁 Subir nuevo temario":
-    st.subheader("📂 Subida de Temario")
-    st.markdown("### 📄 Sube un archivo DOCX o PDF con tu temario:")
-
+if modo == "📄 Subir nuevo temario":
+    st.header("📄 Subida de Temario")
+    st.subheader("📄 Sube un archivo DOCX o PDF con tu temario:")
     archivo_temario = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"])
 
-    tipo_contenido = st.selectbox("🔍 ¿Qué contiene este archivo?", ["Temario completo", "Temario por temas"])
-
-    nombre_oposicion = st.text_input("🌸 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
+    tipo_contenido = st.selectbox("🔍¿Qué contiene este archivo?", ["Temario completo", "Temario por temas"])
+    nombre_oposicion = st.text_input("🌺 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
     nombre_documento = st.text_input("📝 Nombre del documento de temario (Ej: Temario bloque I)")
 
     if archivo_temario and nombre_oposicion:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp.write(archivo_temario.read())
-            archivo_temporal_path = tmp.name
+        with open("/tmp/temporal.docx", "wb") as f:
+            f.write(archivo_temario.read())
 
-        if st.button("✅ Guardar y registrar temario"):
-            with st.spinner("Subiendo y registrando temario..."):
-                try:
-                    enlace_drive = subir_archivo_a_drive(archivo_temporal_path, nombre_oposicion, CARPETA_TEMARIOS)
-                    registrar_temario_en_sheets(nombre_oposicion, tipo_contenido, nombre_documento, enlace_drive)
-                    st.success("✅ Temario subido y registrado correctamente.")
+        enlace_drive = subir_archivo_a_drive("/tmp/temporal.docx", nombre_oposicion)
+        st.success("✅ Temario subido y registrado correctamente.")
 
-                    # Extraer temas y guardar JSON
-                    if tipo_contenido == "Temario completo":
-                        lista_temas = extraer_temas_de_texto(archivo_temporal_path)
-                        if lista_temas:
-                            enlace_temas = guardar_temas_json(lista_temas, nombre_oposicion)
-                            st.markdown(f"[🔗 Ver archivo JSON de temas en Drive]({enlace_temas})")
-                            st.success("Temas procesados correctamente.")
-                        else:
-                            st.warning("No se encontraron temas en el archivo.")
-                except Exception as e:
-                    st.error(f"Ocurrió un error: {str(e)}")
-    else:
-        st.info("📤 Sube un archivo válido y escribe un nombre de oposición para comenzar.")
+        # Extraer temas y guardar JSON
+        lista_temas = extraer_temas_de_texto("/tmp/temporal.docx")
+        if lista_temas:
+            enlace_json = guardar_temas_json(lista_temas, nombre_oposicion)
 
-else:
-    st.subheader("📚 Usar oposición ya registrada")
-    oposiciones_disponibles = obtener_oposiciones_guardadas()
+        guardar_en_sheet(nombre_oposicion, tipo_contenido, nombre_documento, enlace_drive)
 
-    if not oposiciones_disponibles:
-        st.warning("⚠️ Aún no hay temarios registrados en la plataforma.")
-    else:
-        seleccion = st.selectbox("Selecciona una oposición:", oposiciones_disponibles)
-        tipo_test = st.selectbox("Tipo de test", ["Simulacro examen oficial", "Test por temas"])
+elif modo == "🌟 Usar oposición guardada":
+    st.header("📖 Usar oposición ya registrada")
 
-        if tipo_test == "Test por temas":
-            path_local_tmp = f"/tmp/temas_{seleccion.strip().lower().replace(' ', '_')}.json"
-            temas_dict = {}
-            try:
-                temas_dict = descargar_json_de_drive(seleccion, path_local_tmp)
-            except Exception:
-                st.error("❌ El archivo JSON de temas no está disponible localmente.")
+    lista_opos = obtener_oposiciones_guardadas()
+    oposicion = st.selectbox("Selecciona una oposición:", lista_opos)
+    tipo_test = st.selectbox("Tipo de test", ["Simulacro examen oficial", "Test por temas"])
 
-            if temas_dict:
-                tema_elegido = st.selectbox("Selecciona un tema:", list(temas_dict.keys()))
-                num_preguntas = st.slider("Número de preguntas", 5, 50, 10)
+    if tipo_test == "Test por temas":
+        nombre_normalizado = oposicion.strip().lower().replace(" ", "_")
+        nombre_json = f"temas_{nombre_normalizado}.json"
+        path_local = f"/tmp/{nombre_json}"
 
-                if st.button("🧪 Generar test"):
-                    test = generar_test_desde_tema(tema_elegido, temas_dict[tema_elegido], num_preguntas)
-                    st.json(test)
+        # Descargar si no está localmente
+        if not os.path.exists(path_local):
+            descargar_archivo_de_drive(nombre_json, CARPETA_TEMAS_JSON, path_local)
+
+        if os.path.exists(path_local):
+            temas_dict = cargar_temas_desde_json_local(path_local)
+            tema_seleccionado = st.selectbox("Selecciona un tema:", list(temas_dict.keys()))
+            num_preguntas = st.slider("Número de preguntas", 5, 50, 10)
+
+            if st.button("Generar test"):
+                test = generar_test_desde_tema(temas_dict[tema_seleccionado], num_preguntas)
+                st.success("✅ Test generado correctamente.")
+                st.write(test)
         else:
-            if st.button("🧪 Generar test"):
-                test = generar_test_examen_completo(seleccion)
-                st.json(test)
+            st.error("❌ El archivo JSON de temas no está disponible localmente.")
+
+    elif tipo_test == "Simulacro examen oficial":
+        if st.button("Generar test"):
+            test = generar_test_examen_completo(oposicion)
+            st.success("✅ Test generado correctamente.")
+            st.write(test)
