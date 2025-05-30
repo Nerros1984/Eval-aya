@@ -3,6 +3,10 @@ import os
 from utils.drive import subir_archivo_a_drive, CARPETA_TEST_PDF
 
 def generar_pdf_test(nombre_oposicion, preguntas, nombre_base):
+    if not preguntas or not isinstance(preguntas, list):
+        print("❌ No hay preguntas para generar el PDF.")
+        return None
+
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
