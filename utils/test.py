@@ -1,91 +1,68 @@
-# utils/test.py
 import json
-import random
 import os
+import random
 from datetime import datetime
-from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
-from fpdf import FPDF
+from utils.drive import subir_archivo_a_drive
+from utils.pdf import generar_pdf_test
 
+CARPETA_TEST_JSON = "1dNkIuLDfV_qGmrCepkFYo5IWlfFwkl7w"
+CARPETA_TEST_PDF = "1dNkIuLDfV_qGmrCepkFYo5IWlfFwkl7w"
 
-def generar_test_desde_tema(nombre_oposicion, tema, contenido_tema, num_preguntas):
-    preguntas = [
-        {
-            "pregunta": f"{contenido_tema[:150]}...\n\n¿Cuál de las siguientes afirmaciones es correcta?",
-            "opciones": [
-                "A) Opcion simulada 1",
-                "B) Opcion simulada 2",
-                "C) Opcion simulada 3",
-                "D) Opcion simulada 4"
-            ],
-            "respuesta_correcta": "A) Opcion simulada 1"
-        }
-        for _ in range(num_preguntas)
-    ]
+# Estructura tipo oficial (25 preguntas)
+estructura_bloques = {
+    "constitucion": 3,
+    "procedimiento": 5,
+    "administracion_local": 3,
+    "personal": 4,
+    "otros": 10
+}
 
-    nombre_archivo = f"{nombre_oposicion}_{tema}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    ruta_json = f"/tmp/{nombre_archivo}.json"
-    ruta_pdf = f"/tmp/{nombre_archivo}.pdf"
+# Clasificación de temas
+clasificacion_temas = {
+    "TEMA_1 – Constitución Española (I)": "constitucion",
+    "TEMA_2 – Constitución Española (II)": "constitucion",
+    "TEMA_3 – Administración General del Estado": "administracion_local",
+    "TEMA_4 – Organización territorial": "administracion_local",
+    "TEMA_5 – Procedimiento Administrativo": "procedimiento",
+    "TEMA_6 – Funcionamiento electrónico": "procedimiento",
+    "TEMA_7 – Transparencia y acceso a la información": "procedimiento",
+    "TEMA_8 – Personal al servicio de la administración": "personal",
+    "TEMA_9 – Estatuto del empleado público": "personal",
+    "TEMA_10 – Hacienda Pública y control del gasto": "otros",
+    # ... Añadir más temas según necesidad
+}
 
-    with open(ruta_json, "w") as f:
-        json.dump(preguntas, f, indent=2)
+def generar_test_examen_completo(nombre_oposicion, temas_dict):
+    # Agrupar preguntas por bloque
+    bloques = {k: [] for k in estructura_bloques}
 
-    generar_pdf_test(preguntas, nombre_oposicion, tema, ruta_pdf)
+    for tema, preguntas in temas_dict.items():
+        bloque = clasificacion_temas.get(tema, "otros")
+        bloques[bloque].extend(preguntas)
 
-    enlace_json = subir_archivo_a_drive(ruta_json, nombre_oposicion, CARPETA_TEST_JSON)
-    enlace_pdf = subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
+    # Seleccionar aleatoriamente por bloque
+    preguntas_finales = []
+    for bloque, cantidad in estructura_bloques.items():
+        seleccionadas = random.sample(bloques[bloque], min(len(bloques[bloque]), cantidad))
+        preguntas_finales.extend(seleccionadas)
 
-    return preguntas, enlace_json, enlace_pdf
+    # Mezclar preguntas finales
+    random.shuffle(preguntas_finales)
 
+    # Guardar .json local y en Drive
+    fecha = datetime.now().strftime("%Y%m%d%H%M%S")
+    nombre_archivo = f"{nombre_oposicion}_examen_oficial_{fecha}"
+    ruta_local_json = os.path.join("test_generados", f"{nombre_archivo}.json")
+    os.makedirs("test_generados", exist_ok=True)
 
-def generar_test_examen_completo(nombre_oposicion, temas_dict, num_preguntas):
-    temas = list(temas_dict.items())
-    seleccion = random.sample(temas, min(num_preguntas, len(temas)))
+    with open(ruta_local_json, "w") as f:
+        json.dump(preguntas_finales, f, indent=2, ensure_ascii=False)
 
-    preguntas = [
-        {
-            "pregunta": f"Sobre el siguiente fragmento: \n\n{contenido[:200]}...\n\n¿Cuál de las siguientes afirmaciones es correcta?",
-            "opciones": [
-                "A) Opcion simulada 1",
-                "B) Opcion simulada 2",
-                "C) Opcion simulada 3",
-                "D) Opcion simulada 4"
-            ],
-            "respuesta_correcta": "A) Opcion simulada 1"
-        }
-        for _, contenido in seleccion
-    ]
+    subir_archivo_a_drive(ruta_local_json, CARPETA_TEST_JSON)
 
-    nombre_archivo = f"{nombre_oposicion}_examen_completo_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    ruta_json = f"/tmp/{nombre_archivo}.json"
-    ruta_pdf = f"/tmp/{nombre_archivo}.pdf"
+    # Generar PDF
+    ruta_local_pdf = os.path.join("test_generados", f"{nombre_archivo}.pdf")
+    generar_pdf_test(nombre_archivo, preguntas_finales, ruta_local_pdf)
+    subir_archivo_a_drive(ruta_local_pdf, CARPETA_TEST_PDF)
 
-    with open(ruta_json, "w") as f:
-        json.dump(preguntas, f, indent=2)
-
-    generar_pdf_test(preguntas, nombre_oposicion, "Examen completo", ruta_pdf)
-
-    enlace_json = subir_archivo_a_drive(ruta_json, nombre_oposicion, CARPETA_TEST_JSON)
-    enlace_pdf = subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
-
-    return preguntas, enlace_json, enlace_pdf
-
-
-def generar_pdf_test(preguntas, nombre_oposicion, titulo, ruta_pdf):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.multi_cell(0, 10, f"Test generado para: {nombre_oposicion}\nTitulo: {titulo}\n\n---\n")
-
-    for i, pregunta in enumerate(preguntas, 1):
-        pdf.multi_cell(0, 10, f"{i}. {pregunta['pregunta']}")
-        for op in pregunta['opciones']:
-            pdf.cell(0, 10, op, ln=1)
-        pdf.ln(5)
-
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, "Soluciones:", ln=True)
-    for i, pregunta in enumerate(preguntas, 1):
-        pdf.cell(0, 10, f"{i}. {pregunta['respuesta_correcta']}", ln=True)
-
-    pdf.output(ruta_pdf)
+    return ruta_local_json, ruta_local_pdf, preguntas_finales
