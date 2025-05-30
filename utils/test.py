@@ -1,3 +1,4 @@
+# utils/test.py
 import json
 import os
 import random
@@ -25,7 +26,8 @@ def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
     with open(ruta_local, "w", encoding="utf-8") as f:
         json.dump(preguntas, f, indent=2, ensure_ascii=False)
 
-    subir_archivo_a_drive(ruta_local, CARPETA_TEST_JSON)
+    # CORREGIDO: incluir nombre_oposicion
+    subir_archivo_a_drive(ruta_local, nombre_oposicion, CARPETA_TEST_JSON)
     return ruta_local, preguntas
 
 
@@ -35,10 +37,6 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
         bloque = clasificacion_temas.get(tema, "otros")
         if bloque in bloques:
             bloques[bloque].extend(preguntas)
-        else:
-            # Ignorar los bloques que no están definidos en la estructura
-            continue
-
 
     preguntas_finales = []
     for bloque, cantidad in estructura_bloques.items():
@@ -57,7 +55,8 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
 
     ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
 
-    subir_archivo_a_drive(ruta_local_json, CARPETA_TEST_JSON)
-    subir_archivo_a_drive(ruta_pdf, CARPETA_TEST_PDF)
+    # CORREGIDO: incluir nombre_oposicion
+    subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
+    subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
 
     return ruta_local_json, ruta_pdf, preguntas_finales
