@@ -1,5 +1,5 @@
 import streamlit as st
-from test import generar_test_examen
+from utils.test import generar_test_examen
 import json
 
 st.title("📘 EvaluáYa - Generador de Test de Oposiciones")
