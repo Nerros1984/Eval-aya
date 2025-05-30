@@ -2,13 +2,14 @@ import os
 import json
 import random
 from datetime import datetime
-import streamlit as st
 import openai
+import streamlit as st
 
 from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
 from utils.pdf import generar_pdf_test
 from utils.estructura import estructura_bloques, clasificacion_temas
 
+# Configurar la API key de OpenAI desde secrets
 openai.api_key = st.secrets["openai_api_key"]
 
 # --- Generador con OpenAI ---
@@ -27,15 +28,12 @@ def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
     - "respuesta_correcta": texto exacto de la opción correcta
     """
 
-    respuesta = openai.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7
-    )
-
     try:
+        respuesta = openai.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
         texto = respuesta.choices[0].message.content
         preguntas = json.loads(texto)
     except Exception as e:
