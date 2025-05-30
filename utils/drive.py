@@ -1,3 +1,5 @@
+# utils/drive.py
+
 import re
 import unicodedata
 import os
@@ -15,8 +17,7 @@ CARPETA_TEST_PDF = "1dNkIuLDfV_qGmrCepkFYo5IWlfFwkl7w"
 def autenticar_drive():
     scope = ['https://www.googleapis.com/auth/drive']
     credentials = ServiceAccountCredentials.from_json_keyfile_dict(
-        st.secrets["gcp_service_account"],
-        scope
+        st.secrets["gcp_service_account"], scope
     )
     gauth = GoogleAuth()
     gauth.credentials = credentials
@@ -24,7 +25,7 @@ def autenticar_drive():
 
 def normalizar_nombre(nombre):
     nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('utf-8')
-    nombre = re.sub(r'[^a-zA-Z0-9\\s]', '', nombre)
+    nombre = re.sub(r'[^a-zA-Z0-9\s]', '', nombre)
     nombre = nombre.lower().strip().replace(' ', '_')
     return nombre
 
@@ -57,3 +58,31 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario, carpeta_raiz_id):
     archivo_drive.SetContentFile(ruta_archivo)
     archivo_drive.Upload()
     return archivo_drive['alternateLink']
+
+def descargar_archivo_de_drive(nombre_archivo, carpeta_drive_id, path_local_destino):
+    drive = autenticar_drive()
+    subcarpeta_nombre = normalizar_nombre(nombre_archivo.replace("temas_", "").replace(".json", ""))
+    query_carpeta = f"'{carpeta_drive_id}' in parents and title = '{subcarpeta_nombre}' and mimeType = 'application/vnd.google-apps.folder'"
+    subcarpetas = drive.ListFile({'q': query_carpeta, 'maxResults': 1}).GetList()
+    if not subcarpetas:
+        return False
+    subcarpeta_id = subcarpetas[0]['id']
+    query = f"'{subcarpeta_id}' in parents and title = '{nombre_archivo}' and trashed = false"
+    resultados = drive.ListFile({'q': query, 'maxResults': 1}).GetList()
+    if resultados:
+        archivo = resultados[0]
+        archivo.GetContentFile(path_local_destino)
+        return path_local_destino
+    else:
+        return False
+
+def obtener_oposiciones_con_tema_json():
+    drive = autenticar_drive()
+    carpetas = drive.ListFile({
+        'q': f"'{CARPETA_TEMAS_JSON}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    }).GetList()
+    oposiciones = []
+    for carpeta in carpetas:
+        nombre = carpeta['title'].replace("_", " ").title()
+        oposiciones.append(nombre)
+    return sorted(oposiciones)
