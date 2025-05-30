@@ -57,3 +57,17 @@ def subir_archivo_a_drive(ruta_archivo, nombre_temario, carpeta_raiz_id):
     archivo_drive.SetContentFile(ruta_archivo)
     archivo_drive.Upload()
     return archivo_drive['alternateLink']
+
+def descargar_archivo_de_drive(nombre_archivo, carpeta_drive_id, path_local_destino):
+    """
+    Busca un archivo por nombre dentro de una carpeta de Drive y lo descarga al path local indicado.
+    """
+    query = f"'{carpeta_drive_id}' in parents and name = '{nombre_archivo}' and trashed = false"
+    resultados = drive.ListFile({'q': query, 'maxResults': 1}).GetList()
+    
+    if resultados:
+        archivo = resultados[0]
+        archivo.GetContentFile(path_local_destino)
+        return path_local_destino
+    else:
+        return None
