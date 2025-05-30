@@ -62,7 +62,9 @@ def descargar_archivo_de_drive(nombre_archivo, carpeta_drive_id, path_local_dest
     """
     Busca un archivo por nombre dentro de una carpeta de Drive y lo descarga al path local indicado.
     """
-    query = f"'{carpeta_drive_id}' in parents and name = '{nombre_archivo}' and trashed = false"
+    drive = autenticar_drive()  # ← FALTA ESTO
+
+    query = f"'{carpeta_drive_id}' in parents and title = '{nombre_archivo}' and trashed = false"
     resultados = drive.ListFile({'q': query, 'maxResults': 1}).GetList()
     
     if resultados:
