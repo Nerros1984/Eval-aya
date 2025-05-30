@@ -91,6 +91,7 @@ elif modo == "Usar oposición guardada":
 
             elif tipo_test == "Simulacro examen oficial":
                 if st.button("Generar test"):
-                    ruta_json, preguntas = generar_test_examen_completo(opcion, 25)
+                    temas_dict = cargar_temas_desde_json_local(path_local)
+                    ruta_json = generar_test_examen_completo(opcion, temas_dict)
                     st.success("Simulacro generado correctamente.")
                     st.download_button("Descargar test (JSON)", data=open(ruta_json).read(), file_name=os.path.basename(ruta_json))
