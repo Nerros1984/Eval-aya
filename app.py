@@ -20,7 +20,7 @@ if modo == "📂 Subir nuevo temario":
     st.markdown("📄 Sube un archivo DOCX o PDF con tu temario:")
     archivo_temario = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"])
 
-    tipo_contenido = st.selectbox("🤓 ¿Qué contiene este archivo?", ["Temario completo", "Temario por temas"])
+    tipo_contenido = st.selectbox("🧒 ¿Qué contiene este archivo?", ["Temario completo", "Temario por temas"])
     nombre_oposicion = st.text_input("🌺 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
     nombre_temario = st.text_input("📜 Nombre del documento de temario (Ej: Temario bloque I)")
 
@@ -56,7 +56,8 @@ elif modo == "✨ Usar oposición guardada":
     opcion = st.selectbox("Selecciona una oposición:", oposiciones)
     tipo_test = st.selectbox("Tipo de test", ["Test por temas", "Simulacro examen oficial"])
 
-    nombre_archivo = f"temas_{opcion.strip().lower().replace(' ', '_')}.json"
+    nombre_normalizado = opcion.strip().lower().replace(" ", "_")
+    nombre_archivo = f"temas_{nombre_normalizado}.json"
     path_local = f"/tmp/{nombre_archivo}"
     json_ok = descargar_archivo_de_drive(nombre_archivo, CARPETA_TEMAS_JSON, path_local)
 
