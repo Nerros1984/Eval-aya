@@ -9,7 +9,6 @@ from utils.drive import subir_archivo_a_drive, descargar_archivo_de_drive, CARPE
 from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
 from utils.temas import extraer_temas_de_texto, guardar_temas_json, cargar_temas_desde_json_local
 from utils.test import generar_test_desde_tema, generar_test_examen_completo
-from pydrive.files import ApiRequestError
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test", page_icon="📘")
 st.title("📘 EvalúaYa - Generador de Test de Oposiciones")
@@ -21,23 +20,25 @@ if modo == "📂 Subir nuevo temario":
     st.markdown("📄 Sube un archivo DOCX o PDF con tu temario:")
     archivo_temario = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"])
 
-    tipo_contenido = st.selectbox("🤓 ¿Qué contiene este archivo?", ["Temario completo", "Temario por temas"])
+    tipo_contenido = st.selectbox("🤓 ¿Qué contiene este archivo?", ["Temario completo", "Temario dividido por temas", "Resumen del temario"])
     nombre_oposicion = st.text_input("🌺 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
     nombre_temario = st.text_input("📜 Nombre del documento de temario (Ej: Temario bloque I)")
 
     if st.button("📤 Confirmar y registrar temario"):
         if archivo_temario and nombre_oposicion and nombre_temario:
             with st.spinner("Registrando temario..."):
-                try:
-                    extension = archivo_temario.name.split(".")[-1].lower()
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
-                        tmp.write(archivo_temario.read())
-                        tmp_path = tmp.name
+                extension = archivo_temario.name.split(".")[-1].lower()
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
+                    tmp.write(archivo_temario.read())
+                    tmp_path = tmp.name
 
-                    enlace_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, CARPETA_TEMARIOS)
-                    temas_extraidos = extraer_temas_de_texto(tmp_path)
+                enlace_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, CARPETA_TEMARIOS)
+                temas_extraidos = extraer_temas_de_texto(tmp_path)
+
+                if not temas_extraidos:
+                    st.error("❌ No se han podido detectar capítulos. Asegúrate de usar el formato correcto en los títulos (#TEMA_01 – ...)")
+                else:
                     enlace_json = guardar_temas_json(temas_extraidos, nombre_oposicion)
-
                     registrar_en_sheet(
                         nombre_oposicion,
                         nombre_temario,
@@ -46,10 +47,7 @@ if modo == "📂 Subir nuevo temario":
                         enlace_json,
                         datetime.now().strftime("%Y-%m-%d %H:%M")
                     )
-
                     st.success("✅ Temario subido, registrado y procesado correctamente.")
-                except ApiRequestError:
-                    st.warning("⚠️ Ya existe un temario con ese contenido. Puedes verlo en la sección '✨ Usar oposición guardada'.")
         else:
             st.error("❌ Por favor, completa todos los campos y sube un archivo válido.")
 
@@ -57,9 +55,8 @@ elif modo == "✨ Usar oposición guardada":
     st.subheader("📚 Usar oposición ya registrada")
 
     oposiciones = obtener_oposiciones_guardadas()
-
     if not oposiciones:
-        st.info("ℹ️ Aún no hay temarios registrados. Sube uno desde la opción anterior.")
+        st.warning("⚠️ No hay temarios registrados disponibles actualmente.")
     else:
         opcion = st.selectbox("Selecciona una oposición:", oposiciones)
         tipo_test = st.selectbox("Tipo de test", ["Test por temas", "Simulacro examen oficial"])
