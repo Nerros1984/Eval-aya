@@ -2,6 +2,7 @@ import json
 import os
 import random
 from datetime import datetime
+import streamlit as st
 
 from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
 from utils.pdf import generar_pdf_test
@@ -27,8 +28,10 @@ def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
     subir_archivo_a_drive(ruta_local, nombre_oposicion, CARPETA_TEST_JSON)
     return ruta_local, preguntas
 
+
 def generar_test_examen_completo(nombre_oposicion, temas_dict):
     bloques = {k: [] for k in estructura_bloques}
+
     for tema, preguntas in temas_dict.items():
         bloque = clasificacion_temas.get(tema, "otros")
         if bloque in bloques:
@@ -42,6 +45,8 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
         preguntas_finales.extend(seleccionadas)
 
     random.shuffle(preguntas_finales)
+
+    st.write(f"🧪 Generando PDF con {len(preguntas_finales)} preguntas")  # DEBUG VISIBLE EN LA APP
 
     fecha = datetime.now().strftime("%Y%m%d%H%M%S")
     nombre_archivo = f"{nombre_oposicion}_examen_oficial_{fecha}"
