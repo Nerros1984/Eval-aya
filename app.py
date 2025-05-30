@@ -9,6 +9,7 @@ from utils.drive import subir_archivo_a_drive, descargar_archivo_de_drive, CARPE
 from utils.sheets import registrar_en_sheet, obtener_oposiciones_guardadas
 from utils.temas import extraer_temas_de_texto, guardar_temas_json, cargar_temas_desde_json_local
 from utils.test import generar_test_desde_tema, generar_test_examen_completo
+from pydrive.files import ApiRequestError
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test", page_icon="📘")
 st.title("📘 EvalúaYa - Generador de Test de Oposiciones")
@@ -24,42 +25,19 @@ if modo == "📂 Subir nuevo temario":
     nombre_oposicion = st.text_input("🌺 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
     nombre_temario = st.text_input("📜 Nombre del documento de temario (Ej: Temario bloque I)")
 
-    if archivo_temario and nombre_oposicion and nombre_temario:
-        with st.spinner("Procesando el temario..."):
-            extension = archivo_temario.name.split(".")[-1].lower()
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
-                tmp.write(archivo_temario.read())
-                tmp_path = tmp.name
+    if st.button("📤 Confirmar y registrar temario"):
+        if archivo_temario and nombre_oposicion and nombre_temario:
+            with st.spinner("Registrando temario..."):
+                try:
+                    extension = archivo_temario.name.split(".")[-1].lower()
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
+                        tmp.write(archivo_temario.read())
+                        tmp_path = tmp.name
 
-            # Verificar si ya existe ese temario para esa oposición
-            temarios_existentes = obtener_oposiciones_guardadas()
-            nombre_normalizado = nombre_oposicion.strip().lower().replace(" ", "_")
-            nombre_temario_normalizado = nombre_temario.strip().lower()
-
-            ya_existe = any(nombre_normalizado in t.lower() and nombre_temario_normalizado in t.lower() for t in temarios_existentes)
-            if ya_existe:
-                st.error("⚠️ Este temario ya ha sido registrado previamente para esta oposición.")
-                st.stop()
-
-            # Subir el archivo
-            enlace_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, CARPETA_TEMARIOS)
-
-            # Extraer temas
-            temas_extraidos = extraer_temas_de_texto(tmp_path)
-
-            if not temas_extraidos or len(temas_extraidos) < 3:
-                st.error("⚠️ No se han detectado suficientes temas. Revisa el formato del documento.")
-                st.stop()
-
-            st.success(f"✅ Se han detectado {len(temas_extraidos)} temas.")
-            with st.expander("👁 Ver títulos de los temas detectados"):
-                for i, tema in enumerate(temas_extraidos, 1):
-                    titulo = tema.strip().splitlines()[0]
-                    st.markdown(f"- {titulo}")
-
-            if st.button("📅 Confirmar y registrar temario"):
-                with st.spinner("Registrando en Drive y Google Sheets..."):
+                    enlace_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, CARPETA_TEMARIOS)
+                    temas_extraidos = extraer_temas_de_texto(tmp_path)
                     enlace_json = guardar_temas_json(temas_extraidos, nombre_oposicion)
+
                     registrar_en_sheet(
                         nombre_oposicion,
                         nombre_temario,
@@ -68,16 +46,20 @@ if modo == "📂 Subir nuevo temario":
                         enlace_json,
                         datetime.now().strftime("%Y-%m-%d %H:%M")
                     )
-                    st.success("📚 Temario registrado correctamente.")
-    else:
-        st.error("❌ Por favor, completa todos los campos y sube un archivo válido.")
+
+                    st.success("✅ Temario subido, registrado y procesado correctamente.")
+                except ApiRequestError:
+                    st.warning("⚠️ Ya existe un temario con ese contenido. Puedes verlo en la sección '✨ Usar oposición guardada'.")
+        else:
+            st.error("❌ Por favor, completa todos los campos y sube un archivo válido.")
 
 elif modo == "✨ Usar oposición guardada":
     st.subheader("📚 Usar oposición ya registrada")
 
     oposiciones = obtener_oposiciones_guardadas()
+
     if not oposiciones:
-        st.warning("⚠️ No existen oposiciones registradas.")
+        st.info("ℹ️ Aún no hay temarios registrados. Sube uno desde la opción anterior.")
     else:
         opcion = st.selectbox("Selecciona una oposición:", oposiciones)
         tipo_test = st.selectbox("Tipo de test", ["Test por temas", "Simulacro examen oficial"])
