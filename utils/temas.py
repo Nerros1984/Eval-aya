@@ -4,10 +4,22 @@ import re
 import docx2txt
 from utils.drive import subir_archivo_a_drive, CARPETA_TEMAS_JSON
 
+def extraer_titulos_tema(texto):
+    """
+    Extrae los títulos y contenidos de los temas de forma robusta.
+    Admite formatos como:
+    - Tema 1.
+    - TEMA 1 –
+    - Tema 1:
+    - TEMA 1. Introducción
+    """
+    patron = re.compile(r'(Tema\s+\d+[.:–\-]?\s?.*?)(?=Tema\s+\d+[.:–\-]?\s?|$)', re.IGNORECASE | re.DOTALL)
+    coincidencias = patron.findall(texto)
+    return [c.strip() for c in coincidencias if c.strip()]
+
 def extraer_temas_de_texto(path_archivo):
     texto = docx2txt.process(path_archivo)
-    patron = re.compile(r'(Tema\s+\d+\.?\s+.+?)(?=Tema\s+\d+\.|\Z)', re.DOTALL | re.IGNORECASE)
-    return patron.findall(texto)
+    return extraer_titulos_tema(texto)
 
 def guardar_temas_json(lista_temas, nombre_oposicion):
     temas_dict = {contenido.strip().split('\n')[0]: contenido.strip() for contenido in lista_temas}
