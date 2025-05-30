@@ -1,4 +1,3 @@
-# utils/test.py
 import json
 import os
 import random
@@ -12,11 +11,16 @@ from utils.estructura import estructura_bloques, clasificacion_temas
 def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
     preguntas = [
         {
-            "pregunta": f"{tema} - Pregunta {i+1}",
-            "opciones": [f"Opción {j+1}" for j in range(4)],
-            "respuesta_correcta": "Opción 1"
+            "pregunta": f"{tema}: ¿Cuál de las siguientes afirmaciones es correcta?",
+            "opciones": [
+                f"A) {tema} - Opción incorrecta 1",
+                f"B) {tema} - Opción incorrecta 2",
+                f"C) {tema} - Opción incorrecta 3",
+                f"D) {tema} - Opción correcta"
+            ],
+            "respuesta_correcta": f"D) {tema} - Opción correcta"
         }
-        for i in range(num_preguntas)
+        for _ in range(num_preguntas)
     ]
 
     nombre_archivo = f"{nombre_oposicion}_{tema}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -26,7 +30,6 @@ def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
     with open(ruta_local, "w", encoding="utf-8") as f:
         json.dump(preguntas, f, indent=2, ensure_ascii=False)
 
-    # CORREGIDO: incluir nombre_oposicion
     subir_archivo_a_drive(ruta_local, nombre_oposicion, CARPETA_TEST_JSON)
     return ruta_local, preguntas
 
@@ -40,8 +43,10 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
 
     preguntas_finales = []
     for bloque, cantidad in estructura_bloques.items():
-        seleccionadas = random.sample(bloques[bloque], min(len(bloques[bloque]), cantidad))
-        preguntas_finales.extend(seleccionadas)
+        disponibles = bloques.get(bloque, [])
+        if disponibles:
+            seleccionadas = random.sample(disponibles, min(len(disponibles), cantidad))
+            preguntas_finales.extend(seleccionadas)
 
     random.shuffle(preguntas_finales)
 
@@ -55,7 +60,6 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
 
     ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
 
-    # CORREGIDO: incluir nombre_oposicion
     subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
     subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
 
