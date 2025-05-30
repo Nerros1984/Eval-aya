@@ -33,7 +33,12 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
     bloques = {k: [] for k in estructura_bloques}
     for tema, preguntas in temas_dict.items():
         bloque = clasificacion_temas.get(tema, "otros")
-        bloques[bloque].extend(preguntas)
+        if bloque in bloques:
+            bloques[bloque].extend(preguntas)
+        else:
+            # Ignorar los bloques que no están definidos en la estructura
+            continue
+
 
     preguntas_finales = []
     for bloque, cantidad in estructura_bloques.items():
