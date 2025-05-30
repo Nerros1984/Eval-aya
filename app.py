@@ -1,54 +1,58 @@
-import streamlit as st
 import json
 import os
-from utils.sheets import obtener_oposiciones_guardadas, obtener_temas_json_local
-from utils.test import generar_test_desde_tema, generar_test_examen_completo
+import random
+from datetime import datetime
 
-st.title("Generador de Tests")
+from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
+from utils.pdf import generar_pdf_test
+from utils.estructura import estructura_bloques
 
-# Mostrar oposiciones disponibles
-opciones_oposiciones = obtener_oposiciones_guardadas()
-nombre_oposicion = st.selectbox("Selecciona la oposición", opciones_oposiciones)
+def generar_test_desde_tema(nombre_oposicion, tema, num_preguntas):
+    preguntas = [
+        {
+            "pregunta": f"{tema} - Pregunta {i+1}",
+            "opciones": [f"Opción {j+1}" for j in range(4)],
+            "respuesta_correcta": "Opción 1"
+        }
+        for i in range(num_preguntas)
+    ]
 
-modo_test = st.radio("Tipo de test", ["Por tema", "Simulacro de examen oficial"])
+    nombre_archivo = f"{nombre_oposicion}_{tema}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    ruta_local = os.path.join("test_generados", f"{nombre_archivo}.json")
+    os.makedirs("test_generados", exist_ok=True)
 
-if modo_test == "Por tema":
-    temas_dict = obtener_temas_json_local(nombre_oposicion)
-    temas_disponibles = list(temas_dict.keys())
-    tema_seleccionado = st.selectbox("Selecciona un tema", temas_disponibles)
-    num_preguntas = st.slider("Número de preguntas", 5, 20, 10)
+    with open(ruta_local, "w", encoding="utf-8") as f:
+        json.dump(preguntas, f, indent=2, ensure_ascii=False)
 
-    if st.button("Generar test por tema"):
-        with st.spinner("Generando test..."):
-            ruta_json, preguntas = generar_test_desde_tema(nombre_oposicion, tema_seleccionado, num_preguntas)
+    subir_archivo_a_drive(ruta_local, nombre_oposicion, CARPETA_TEST_JSON)
+    return ruta_local, preguntas
 
-        st.success("Test generado correctamente")
+def generar_test_examen_completo(nombre_oposicion, temas_dict):
+    # Simulación temporal de preguntas válidas (no GPT)
+    total_preguntas = sum(estructura_bloques.values())
+    preguntas_finales = []
 
-        st.write("### Preguntas del test")
-        for idx, pregunta in enumerate(preguntas, 1):
-            st.write(f"**{idx}. {pregunta['pregunta']}**")
-            for opcion in pregunta["opciones"]:
-                st.write(f"- {opcion}")
+    for i in range(total_preguntas):
+        pregunta = {
+            "pregunta": f"Pregunta simulada {i+1} sobre {nombre_oposicion}",
+            "opciones": [f"Opción {j+1}" for j in range(4)],
+            "respuesta_correcta": "Opción 1"
+        }
+        preguntas_finales.append(pregunta)
 
-        st.download_button("Descargar PDF", open(ruta_json.replace(".json", ".pdf"), "rb"), file_name=os.path.basename(ruta_json.replace(".json", ".pdf")))
+    random.shuffle(preguntas_finales)
 
-else:
-    if st.button("Generar simulacro oficial"):
-        with st.spinner("Generando examen oficial..."):
-            temas_dict = obtener_temas_json_local(nombre_oposicion)
-            ruta_json, ruta_pdf, preguntas = generar_test_examen_completo(nombre_oposicion, temas_dict)
+    fecha = datetime.now().strftime("%Y%m%d%H%M%S")
+    nombre_archivo = f"{nombre_oposicion}_examen_oficial_{fecha}"
+    ruta_local_json = os.path.join("test_generados", f"{nombre_archivo}.json")
+    os.makedirs("test_generados", exist_ok=True)
 
-        st.success("Examen oficial generado")
+    with open(ruta_local_json, "w", encoding="utf-8") as f:
+        json.dump(preguntas_finales, f, indent=2, ensure_ascii=False)
 
-        st.write("### Preguntas del test")
-        respuestas_usuario = []
-        for idx, pregunta in enumerate(preguntas, 1):
-            st.write(f"**{idx}. {pregunta['pregunta']}**")
-            respuesta = st.radio(f"Respuesta {idx}", pregunta["opciones"], key=idx)
-            respuestas_usuario.append((respuesta, pregunta["respuesta_correcta"]))
+    ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
 
-        if st.button("Evaluar respuestas"):
-            correctas = sum([1 for r, c in respuestas_usuario if r == c])
-            st.info(f"Has acertado {correctas} de {len(preguntas)} preguntas. Nota: {round(correctas/len(preguntas)*10,2)}")
+    subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
+    subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
 
-        st.download_button("Descargar PDF", open(ruta_pdf, "rb"), file_name=os.path.basename(ruta_pdf))
+    return ruta_local_json, ruta_pdf, preguntas_finales
