@@ -1,35 +1,37 @@
 from fpdf import FPDF
 import os
+from datetime import datetime
+from utils.drive import subir_archivo_a_drive, CARPETA_TEST_PDF
 
-def generar_pdf_test(preguntas, nombre_archivo, carpeta="test_generados"):
+def generar_pdf_test(nombre_oposicion, preguntas, nombre_base):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-
-    # Título
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(200, 10, "Simulacro de Examen Oficial", ln=True, align="C")
+    pdf.cell(200, 10, txt=f"Examen Simulado - {nombre_oposicion}", ln=True, align="C")
     pdf.ln(10)
 
-    # Preguntas
-    pdf.set_font("Arial", size=12)
-    for idx, pregunta in enumerate(preguntas, start=1):
+    for idx, pregunta in enumerate(preguntas, 1):
+        if not isinstance(pregunta, dict) or 'pregunta' not in pregunta:
+            continue
         pdf.multi_cell(0, 10, f"{idx}. {pregunta['pregunta']}")
-        for opcion in pregunta['opciones']:
-            pdf.cell(0, 10, f"   {opcion}", ln=True)
+        for opcion in pregunta.get("opciones", []):
+            pdf.cell(10)
+            pdf.multi_cell(0, 10, f"- {opcion}")
         pdf.ln(5)
 
-    # Página de soluciones
     pdf.add_page()
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(200, 10, "Soluciones", ln=True, align="C")
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(200, 10, txt="Hoja de respuestas", ln=True, align="C")
     pdf.ln(10)
-    pdf.set_font("Arial", size=12)
-    for idx, pregunta in enumerate(preguntas, start=1):
+
+    for idx, pregunta in enumerate(preguntas, 1):
+        if not isinstance(pregunta, dict) or 'respuesta_correcta' not in pregunta:
+            continue
         pdf.cell(0, 10, f"{idx}. {pregunta['respuesta_correcta']}", ln=True)
 
-    # Guardar PDF
-    os.makedirs(carpeta, exist_ok=True)
-    ruta_pdf = os.path.join(carpeta, f"{nombre_archivo}.pdf")
+    os.makedirs("test_generados", exist_ok=True)
+    ruta_pdf = os.path.join("test_generados", f"{nombre_base}.pdf")
     pdf.output(ruta_pdf)
+
+    subir_archivo_a_drive(ruta_pdf, CARPETA_TEST_PDF)
     return ruta_pdf
