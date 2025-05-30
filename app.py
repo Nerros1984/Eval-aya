@@ -20,50 +20,59 @@ if modo == "📂 Subir nuevo temario":
     st.markdown("📄 Sube un archivo DOCX o PDF con tu temario:")
     archivo_temario = st.file_uploader("Subir temario (DOCX o PDF)", type=["pdf", "docx"])
 
-    tipo_contenido = st.selectbox("🧒 ¿Qué contiene este archivo?", ["Temario completo", "Temario por temas", "Resumen del temario"])
-    nombre_oposicion = st.text_input("🌸 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
+    tipo_contenido = st.selectbox("🤓 ¿Qué contiene este archivo?", ["Temario completo", "Temario por temas", "Resumen del temario"])
+    nombre_oposicion = st.text_input("🌺 Nombre de la oposición (Ej: Administrativo Junta Andalucía)")
     nombre_temario = st.text_input("📜 Nombre del documento de temario (Ej: Temario bloque I)")
 
-    if st.button("📄 Procesar temario"):
-        if archivo_temario and nombre_oposicion and nombre_temario:
-            with st.spinner("Extrayendo temas del documento..."):
-                extension = archivo_temario.name.split(".")[-1].lower()
-                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
-                    tmp.write(archivo_temario.read())
-                    tmp_path = tmp.name
+    if archivo_temario and nombre_oposicion and nombre_temario:
+        extension = archivo_temario.name.split(".")[-1].lower()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
+            tmp.write(archivo_temario.read())
+            tmp_path = tmp.name
 
-                temas_extraidos = extraer_temas_de_texto(tmp_path)
+        st.session_state.tmp_path = tmp_path
+        st.session_state.nombre_oposicion = nombre_oposicion
+        st.session_state.nombre_temario = nombre_temario
+        st.session_state.tipo_contenido = tipo_contenido
 
-            if temas_extraidos:
-                st.success(f"🚀 Se han detectado {len(temas_extraidos)} temas en el documento. Revisa la lista antes de registrar:")
-                for i, t in enumerate(temas_extraidos, 1):
-                    st.markdown(f"**{i}.** {t.strip().split('\n')[0]}")
-
-                if st.button("🔢 Confirmar y registrar temario"):
-                    with st.spinner("Registrando temario..."):
-                        enlace_drive = subir_archivo_a_drive(tmp_path, nombre_oposicion, CARPETA_TEMARIOS)
-                        enlace_json = guardar_temas_json(temas_extraidos, nombre_oposicion)
-
-                        registrar_en_sheet(
-                            nombre_oposicion,
-                            nombre_temario,
-                            tipo_contenido,
-                            enlace_drive,
-                            enlace_json,
-                            datetime.now().strftime("%Y-%m-%d %H:%M")
-                        )
-                        st.success("📅 Temario subido, registrado y procesado correctamente.")
+        if st.button("📄 Validar temas detectados"):
+            temas_extraidos = extraer_temas_de_texto(tmp_path)
+            if not temas_extraidos:
+                st.error("❌ No se detectaron temas en el documento. Verifica el formato.")
             else:
-                st.warning("⚠️ No se detectaron temas. Revisa que el formato del documento sea correcto.")
-        else:
-            st.error("❌ Por favor, completa todos los campos y sube un archivo válido.")
+                st.session_state.temas_extraidos = temas_extraidos
+                st.markdown("### Temas detectados:")
+                for t in temas_extraidos:
+                    st.markdown(f"- {t.strip().splitlines()[0]}")
 
-elif modo == "✨ Usar oposición guardada":
+        if "temas_extraidos" in st.session_state:
+            if st.button("📅 Confirmar y registrar temario"):
+                with st.spinner("Registrando temario..."):
+                    enlace_drive = subir_archivo_a_drive(
+                        st.session_state.tmp_path,
+                        st.session_state.nombre_oposicion,
+                        CARPETA_TEMARIOS
+                    )
+                    enlace_json = guardar_temas_json(
+                        st.session_state.temas_extraidos,
+                        st.session_state.nombre_oposicion
+                    )
+                    registrar_en_sheet(
+                        st.session_state.nombre_oposicion,
+                        st.session_state.nombre_temario,
+                        st.session_state.tipo_contenido,
+                        enlace_drive,
+                        enlace_json,
+                        datetime.now().strftime("%Y-%m-%d %H:%M")
+                    )
+                    st.success("✅ Temario subido, registrado y procesado correctamente.")
+
+else:
     st.subheader("📚 Usar oposición ya registrada")
-
     oposiciones = obtener_oposiciones_guardadas()
+
     if not oposiciones:
-        st.warning("⚠️ No hay oposiciones registradas todavía.")
+        st.warning("⚠️ No hay oposiciones registradas aún. Sube un temario primero.")
     else:
         opcion = st.selectbox("Selecciona una oposición:", oposiciones)
         tipo_test = st.selectbox("Tipo de test", ["Test por temas", "Simulacro examen oficial"])
