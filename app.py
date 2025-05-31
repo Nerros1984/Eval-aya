@@ -1,12 +1,19 @@
 import streamlit as st
 import json
 import os
+import unicodedata
+
 from utils.drive import obtener_oposiciones_con_tema_json, descargar_archivo_de_drive
 from utils.test import generar_test_examen_completo
 
 st.set_page_config(page_title="EvalúaYa - Generador de Test", page_icon="🔮", layout="centered")
-
 st.title("🧪 EvalúaYa - Generador Inteligente de Test")
+
+# Función para evitar errores con caracteres raros
+def limpiar_texto(texto):
+    if not isinstance(texto, str):
+        return ""
+    return unicodedata.normalize("NFKD", texto).encode("utf-8", "ignore").decode("utf-8")
 
 modo = st.selectbox("Selecciona el modo:", ["Usar temario guardado"], index=0)
 
@@ -35,13 +42,14 @@ if modo == "Usar temario guardado":
                     st.success("Test generado correctamente.")
 
                     with open(ruta_pdf, "rb") as f:
-                        st.download_button("\ud83d\udd17 Descargar test PDF", f, file_name=os.path.basename(ruta_pdf))
+                        st.download_button("📎 Descargar test PDF", f, file_name=os.path.basename(ruta_pdf))
 
-                    st.subheader("\ud83d\udd39 Vista previa del test")
+                    st.subheader("🔎 Vista previa del test")
                     for idx, preg in enumerate(preguntas, 1):
-                        st.markdown(f"**{idx}. {preg['pregunta']}**")
-                        for op in preg['opciones']:
-                            st.markdown(f"- {op}")
+                        pregunta = limpiar_texto(preg.get('pregunta', ''))
+                        st.markdown(f"**{idx}. {pregunta}**")
+                        for op in preg.get('opciones', []):
+                            st.markdown(f"- {limpiar_texto(op)}")
                 except Exception as e:
                     st.error(f"Error generando test: {e}")
         else:
