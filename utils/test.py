@@ -8,6 +8,7 @@ import streamlit as st
 from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
 from utils.pdf import generar_pdf_test
 from utils.estructura import estructura_bloques, clasificacion_temas
+from utils.sheets import registrar_en_sheet
 
 # Configurar la API key de OpenAI desde secrets
 openai.api_key = st.secrets["openai_api_key"]
@@ -85,8 +86,20 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
     with open(ruta_local_json, "w", encoding="utf-8") as f:
         json.dump(preguntas_finales, f, indent=2, ensure_ascii=False)
 
+    # Subida a Drive en carpetas correctas
+    enlace_json = subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
     ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
-    subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
-    subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
+    enlace_pdf = subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
+
+    # Registro en Sheets
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+    registrar_en_sheet(
+        nombre_oposicion,
+        nombre_archivo,
+        "test",
+        enlace_pdf,
+        enlace_json,
+        fecha
+    )
 
     return ruta_local_json, ruta_pdf, preguntas_finales
