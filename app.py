@@ -34,8 +34,8 @@ if modo == "📤 Subir nuevo temario":
             temas_extraidos = extraer_temas_de_texto(ruta_temporal)
             if temas_extraidos:
                 enlace = guardar_temas_json(temas_extraidos, nombre_oposicion)
-                st.success(f"✅ Temario procesado correctamente y subido a Drive.")
-                st.markdown(f"[Abrir archivo en Drive]({enlace})")
+                st.success("✅ Temario procesado correctamente y subido a Drive.")
+                st.markdown("[Abrir archivo en Drive](" + enlace + ")")
             else:
                 st.warning("No se detectaron temas con el formato adecuado.")
 
@@ -49,16 +49,19 @@ elif modo == "📚 Usar temario guardado":
         seleccion = st.selectbox("Selecciona oposición", oposiciones)
 
         with st.expander("📂 Ver tests ya generados para esta oposición"):
-            if seleccion:
-                tests_guardados = obtener_tests_de_oposicion(seleccion)
-                if tests_guardados:
-                    for test in tests_guardados:
-                        st.markdown(f"🧾 **{test['nombre_test']}** ({test['fecha']})  
-[Descargar PDF]({test['pdf']})")
-                else:
-                    st.markdown("No hay tests guardados aún para esta oposición.")
+            tests_guardados = obtener_tests_de_oposicion(seleccion)
+            if tests_guardados:
+                for test in tests_guardados:
+                    texto = "🧾 **{}** ({})  \n[Descargar PDF]({})".format(
+                        test["nombre_test"],
+                        test["fecha"],
+                        test["pdf"]
+                    )
+                    st.markdown(texto)
+            else:
+                st.markdown("No hay tests guardados aún para esta oposición.")
 
-        nombre_archivo = f"temas_{seleccion.strip().lower().replace(' ', '_')}.json"
+        nombre_archivo = "temas_" + seleccion.strip().lower().replace(" ", "_") + ".json"
         path_local = os.path.join("/tmp", nombre_archivo)
 
         if descargar_archivo_de_drive(nombre_archivo, "1popTRkA-EjI8_4WqKPjkldWVpCYsJJjm", path_local):
@@ -78,11 +81,11 @@ elif modo == "📚 Usar temario guardado":
                     st.subheader("📝 Responde al test")
                     respuestas_usuario = {}
                     for idx, pregunta in enumerate(preguntas, 1):
-                        st.markdown(f"**{idx}. {pregunta['pregunta']}**")
+                        st.markdown("**" + str(idx) + ". " + pregunta["pregunta"] + "**")
                         respuesta = st.radio(
-                            f"Selecciona una respuesta para la pregunta {idx}",
+                            "Selecciona una respuesta para la pregunta " + str(idx),
                             pregunta["opciones"],
-                            key=f"preg_{idx}"
+                            key="preg_" + str(idx)
                         )
                         respuestas_usuario[idx] = respuesta
 
@@ -94,8 +97,8 @@ elif modo == "📚 Usar temario guardado":
                             seleccionada = respuestas_usuario.get(idx, "")
                             if seleccionada == correcta:
                                 aciertos += 1
-                        st.info(f"Has acertado {aciertos} de {total} preguntas. ({(aciertos/total)*100:.1f}%)")
+                        st.info("Has acertado {} de {} preguntas. ({:.1f}%)".format(aciertos, total, (aciertos / total) * 100))
                 except Exception as e:
-                    st.error(f"❌ Error generando el test: {e}")
+                    st.error("❌ Error generando el test: {}".format(e))
         else:
             st.warning("No se pudo encontrar el archivo del temario.")
