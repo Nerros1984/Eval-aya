@@ -14,24 +14,36 @@ openai.api_key = st.secrets["openai_api_key"]
 
 def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
     prompt = f"""
-    Genera {num_preguntas} preguntas tipo test con 4 opciones cada una sobre el siguiente tema:
+Actúa como un generador de exámenes tipo test para oposiciones. 
 
-    Título del tema: {nombre_tema}
+A partir del siguiente contenido, crea EXACTAMENTE {num_preguntas} preguntas tipo test. Cada pregunta debe tener 4 opciones (A, B, C, D) y una única respuesta correcta.
 
-    Contenido:
-    {contenido_tema}
+Tu respuesta debe ser una **lista JSON válida** con este formato exacto:
 
-    El formato debe ser una lista JSON donde cada ítem sea un diccionario con las claves:
-    - "pregunta": texto de la pregunta
-    - "opciones": lista de 4 opciones
-    - "respuesta_correcta": texto exacto de la opción correcta
-    """
+[
+  {{
+    "pregunta": "...",
+    "opciones": ["A. ...", "B. ...", "C. ...", "D. ..."],
+    "respuesta_correcta": "A. ..."
+  }},
+  ...
+]
+
+No expliques nada, no incluyas introducciones ni texto adicional. Solo responde con una lista JSON válida.
+
+Título del tema: {nombre_tema}
+
+Contenido del tema:
+"""
+{contenido_tema}
+"""
+"""
 
     try:
         respuesta = openai.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
+            temperature=0.3
         )
         texto = respuesta.choices[0].message.content
         preguntas = json.loads(texto)
@@ -70,7 +82,7 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
     preguntas_reserva = preguntas_reserva[:10]
 
     if not preguntas_total:
-        st.error("❌ No se han podido generar preguntas. Puede deberse a un fallo con OpenAI o a temas mal estructurados.")
+        st.error("❌ No se han podido generar preguntas. Verifica los temas o la respuesta de GPT.")
         return None, None, []
 
     for p in preguntas_reserva:
