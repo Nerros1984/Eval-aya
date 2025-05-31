@@ -1,93 +1,89 @@
-
-import os
-import json
-import random
-from datetime import datetime
-import openai
 import streamlit as st
+import json
+import os
+import unicodedata
+from utils.drive import (
+    obtener_oposiciones_con_tema_json,
+    descargar_archivo_de_drive
+)
+from utils.temas import extraer_temas_de_texto, guardar_temas_json
+from utils.test import generar_test_examen_completo
 
-from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
-from utils.pdf import generar_pdf_test
-from utils.estructura import estructura_bloques, clasificacion_temas
+st.set_page_config(page_title="EvalúaYa", layout="wide")
+st.title("📘 EvalúaYa - Plataforma Inteligente de Test para Oposiciones")
 
-# Configurar la API key de OpenAI desde secrets
-openai.api_key = st.secrets["openai_api_key"]
+def limpiar_texto(texto):
+    if not isinstance(texto, str):
+        return ""
+    return unicodedata.normalize("NFKD", texto).encode("utf-8", "ignore").decode("utf-8")
 
-# --- Generador con OpenAI ---
-def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
-    prompt = f"""
-    Genera {num_preguntas} preguntas tipo test con 4 opciones cada una sobre el siguiente tema:
+modo = st.sidebar.radio("Selecciona el modo:", ["📤 Subir nuevo temario", "📚 Usar temario guardado"])
 
-    Título del tema: {nombre_tema}
+if modo == "📤 Subir nuevo temario":
+    st.subheader("Subir un nuevo temario")
+    archivo = st.file_uploader("Selecciona archivo .docx", type=["docx"])
+    nombre_oposicion = st.text_input("Nombre de la oposición")
 
-    Contenido:
-    {contenido_tema}
+    if archivo and nombre_oposicion:
+        ruta_temporal = os.path.join("/tmp", archivo.name)
+        with open(ruta_temporal, "wb") as f:
+            f.write(archivo.getbuffer())
 
-    El formato debe ser una lista JSON donde cada ítem sea un diccionario con las claves:
-    - "pregunta": texto de la pregunta
-    - "opciones": lista de 4 opciones
-    - "respuesta_correcta": texto exacto de la opción correcta
-    """
+        if st.button("Procesar y subir temario"):
+            temas_extraidos = extraer_temas_de_texto(ruta_temporal)
+            if temas_extraidos:
+                enlace = guardar_temas_json(temas_extraidos, nombre_oposicion)
+                st.success(f"✅ Temario procesado correctamente y subido a Drive.")
+                st.markdown(f"[Abrir archivo en Drive]({enlace})")
+            else:
+                st.warning("No se detectaron temas con el formato adecuado.")
 
-    try:
-        respuesta = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
-        )
-        texto = respuesta.choices[0].message.content
-        preguntas = json.loads(texto)
-    except Exception as e:
-        print("Error procesando respuesta de OpenAI:", e)
-        preguntas = []
+elif modo == "📚 Usar temario guardado":
+    st.subheader("Seleccionar un temario existente")
 
-    return preguntas
+    oposiciones = obtener_oposiciones_con_tema_json()
+    if not oposiciones:
+        st.warning("No hay temarios disponibles en Drive.")
+    else:
+        seleccion = st.selectbox("Selecciona oposición", oposiciones)
+        nombre_archivo = f"temas_{seleccion.strip().lower().replace(' ', '_')}.json"
+        path_local = os.path.join("/tmp", nombre_archivo)
 
-# --- Generador de test desde un único tema ---
-def generar_test_desde_tema(nombre_oposicion, nombre_tema, contenido_tema, num_preguntas):
-    preguntas = generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas)
+        if descargar_archivo_de_drive(nombre_archivo, "1popTRkA-EjI8_4WqKPjkldWVpCYsJJjm", path_local):
+            st.success("Temario descargado correctamente")
 
-    nombre_archivo = f"{nombre_oposicion}_{nombre_tema}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    ruta_local = os.path.join("test_generados", f"{nombre_archivo}.json")
-    os.makedirs("test_generados", exist_ok=True)
+            if st.button("🧠 Generar examen simulado con IA"):
+                with open(path_local, "r", encoding="utf-8") as f:
+                    temas_dict = json.load(f)
 
-    with open(ruta_local, "w", encoding="utf-8") as f:
-        json.dump(preguntas, f, indent=2, ensure_ascii=False)
+                try:
+                    ruta_json, ruta_pdf, preguntas = generar_test_examen_completo(seleccion, temas_dict)
+                    st.success("✅ Test generado correctamente")
 
-    subir_archivo_a_drive(ruta_local, nombre_oposicion, CARPETA_TEST_JSON)
+                    with open(ruta_pdf, "rb") as f_pdf:
+                        st.download_button("📎 Descargar test en PDF", f_pdf, file_name=os.path.basename(ruta_pdf))
 
-    ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas, nombre_archivo)
-    subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
+                    st.subheader("📝 Responde al test")
+                    respuestas_usuario = {}
+                    for idx, pregunta in enumerate(preguntas, 1):
+                        st.markdown(f"**{idx}. {pregunta['pregunta']}**")
+                        respuesta = st.radio(
+                            f"Selecciona una respuesta para la pregunta {idx}",
+                            pregunta["opciones"],
+                            key=f"preg_{idx}"
+                        )
+                        respuestas_usuario[idx] = respuesta
 
-    return ruta_local, ruta_pdf, preguntas
-
-# --- Generador de simulacro oficial ---
-def generar_test_examen_completo(nombre_oposicion, temas_dict):
-    bloques = {k: [] for k in estructura_bloques}
-
-    for tema, contenido in temas_dict.items():
-        bloque = clasificacion_temas.get(tema)
-        if not bloque:
-            continue
-        preguntas = generar_preguntas_desde_tema(tema, contenido, estructura_bloques[bloque])
-        bloques[bloque].extend(preguntas)
-
-    preguntas_finales = []
-    for bloque, cantidad in estructura_bloques.items():
-        seleccionadas = random.sample(bloques[bloque], min(len(bloques[bloque]), cantidad))
-        preguntas_finales.extend(seleccionadas)
-
-    random.shuffle(preguntas_finales)
-
-    nombre_archivo = f"{nombre_oposicion}_examen_oficial_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    ruta_local_json = os.path.join("test_generados", f"{nombre_archivo}.json")
-    os.makedirs("test_generados", exist_ok=True)
-
-    with open(ruta_local_json, "w", encoding="utf-8") as f:
-        json.dump(preguntas_finales, f, indent=2, ensure_ascii=False)
-
-    ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
-    subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
-    subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
-
-    return ruta_local_json, ruta_pdf, preguntas_finales
+                    if st.button("✅ Validar respuestas"):
+                        aciertos = 0
+                        total = len(preguntas)
+                        for idx, pregunta in enumerate(preguntas, 1):
+                            correcta = pregunta.get("respuesta_correcta", "")
+                            seleccionada = respuestas_usuario.get(idx, "")
+                            if seleccionada == correcta:
+                                aciertos += 1
+                        st.info(f"Has acertado {aciertos} de {total} preguntas. ({(aciertos/total)*100:.1f}%)")
+                except Exception as e:
+                    st.error(f"❌ Error generando el test: {e}")
+        else:
+            st.warning("No se pudo encontrar el archivo del temario.")
