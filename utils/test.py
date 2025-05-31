@@ -43,63 +43,52 @@ def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
 
     return preguntas
 
-# --- Generador de test desde un único tema ---
-def generar_test_desde_tema(nombre_oposicion, nombre_tema, contenido_tema, num_preguntas):
-    preguntas = generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas)
-
-    nombre_archivo = f"{nombre_oposicion}_{nombre_tema}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    ruta_local = os.path.join("test_generados", f"{nombre_archivo}.json")
-    os.makedirs("test_generados", exist_ok=True)
-
-    with open(ruta_local, "w", encoding="utf-8") as f:
-        json.dump(preguntas, f, indent=2, ensure_ascii=False)
-
-    subir_archivo_a_drive(ruta_local, nombre_oposicion, CARPETA_TEST_JSON)
-
-    ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas, nombre_archivo)
-    subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
-
-    return ruta_local, ruta_pdf, preguntas
-
-# --- Generador de simulacro oficial ---
+# --- Generador de test oficial con 90+10 ---
 def generar_test_examen_completo(nombre_oposicion, temas_dict):
-    bloques = {k: [] for k in estructura_bloques}
+    preguntas_total = []
+    preguntas_reserva = []
 
-    for tema, contenido in temas_dict.items():
-        bloque = clasificacion_temas.get(tema)
-        if not bloque:
-            continue
-        preguntas = generar_preguntas_desde_tema(tema, contenido, estructura_bloques[bloque])
-        bloques[bloque].extend(preguntas)
+    temas_validos = [(tema, contenido) for tema, contenido in temas_dict.items() if tema in clasificacion_temas]
+    random.shuffle(temas_validos)
 
-    preguntas_finales = []
-    for bloque, cantidad in estructura_bloques.items():
-        seleccionadas = random.sample(bloques[bloque], min(len(bloques[bloque]), cantidad))
-        preguntas_finales.extend(seleccionadas)
+    # Distribución básica (4 preguntas por tema para 25 temas aprox.)
+    for tema, contenido in temas_validos:
+        preguntas = generar_preguntas_desde_tema(tema, contenido, 4)
+        preguntas_total.extend(preguntas)
+        if len(preguntas_total) >= 90:
+            break
 
-    random.shuffle(preguntas_finales)
+    # Añadir 10 de reserva (de otros temas o mismos si faltan)
+    for tema, contenido in temas_validos:
+        preguntas = generar_preguntas_desde_tema(tema, contenido, 2)
+        preguntas_reserva.extend(preguntas)
+        if len(preguntas_reserva) >= 10:
+            break
+
+    # Truncamos en caso de exceso
+    preguntas_total = preguntas_total[:90]
+    preguntas_reserva = preguntas_reserva[:10]
+
+    # Marcar reservas
+    for p in preguntas_reserva:
+        p["reserva"] = True
+
+    todas = preguntas_total + preguntas_reserva
+    random.shuffle(todas)
 
     nombre_archivo = f"{nombre_oposicion}_examen_oficial_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    ruta_local_json = os.path.join("test_generados", f"{nombre_archivo}.json")
     os.makedirs("test_generados", exist_ok=True)
 
-    with open(ruta_local_json, "w", encoding="utf-8") as f:
-        json.dump(preguntas_finales, f, indent=2, ensure_ascii=False)
+    ruta_json = os.path.join("test_generados", f"{nombre_archivo}.json")
+    with open(ruta_json, "w", encoding="utf-8") as f:
+        json.dump(todas, f, indent=2, ensure_ascii=False)
 
-    # Subida a Drive en carpetas correctas
-    enlace_json = subir_archivo_a_drive(ruta_local_json, nombre_oposicion, CARPETA_TEST_JSON)
-    ruta_pdf = generar_pdf_test(nombre_oposicion, preguntas_finales, nombre_archivo)
+    enlace_json = subir_archivo_a_drive(ruta_json, nombre_oposicion, CARPETA_TEST_JSON)
+
+    ruta_pdf = generar_pdf_test(nombre_oposicion, todas, nombre_archivo)
     enlace_pdf = subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
 
-    # Registro en Sheets
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-    registrar_en_sheet(
-        nombre_oposicion,
-        nombre_archivo,
-        "test",
-        enlace_pdf,
-        enlace_json,
-        fecha
-    )
+    registrar_en_sheet(nombre_oposicion, nombre_archivo, "test", enlace_pdf, enlace_json, fecha)
 
-    return ruta_local_json, ruta_pdf, preguntas_finales
+    return ruta_json, ruta_pdf, todas
