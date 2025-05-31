@@ -47,8 +47,7 @@ elif modo == "📚 Usar temario guardado":
             tests_guardados = obtener_tests_de_oposicion(seleccion)
             if tests_guardados:
                 for test in tests_guardados:
-                    st.markdown(f"🧾 **{test['nombre_test']}** ({test['fecha']})  
-[Descargar PDF]({test['pdf']})")
+                    st.markdown(f"🧾 **{test['nombre_test']}** ({test['fecha']})  \n[Descargar PDF]({test['pdf']})")
             else:
                 st.markdown("No hay tests guardados aún para esta oposición.")
 
