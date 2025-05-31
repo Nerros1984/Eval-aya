@@ -41,6 +41,17 @@ if modo == "📤 Subir nuevo temario":
 elif modo == "📚 Usar temario guardado":
     st.subheader("Seleccionar un temario existente")
 
+    with st.expander("📂 Ver tests ya generados para esta oposición"):
+        from utils.sheets import obtener_tests_de_oposicion
+        if seleccion:
+            tests_guardados = obtener_tests_de_oposicion(seleccion)
+            if tests_guardados:
+                for test in tests_guardados:
+                    st.markdown(f"🧾 **{test['nombre_test']}** ({test['fecha']})  
+[Descargar PDF]({test['pdf']})")
+            else:
+                st.markdown("No hay tests guardados aún para esta oposición.")
+
     oposiciones = obtener_oposiciones_con_tema_json()
     if not oposiciones:
         st.warning("No hay temarios disponibles en Drive.")
