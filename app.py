@@ -1,3 +1,4 @@
+
 import streamlit as st
 import json
 import os
@@ -52,13 +53,9 @@ elif modo == "📚 Usar temario guardado":
             tests_guardados = obtener_tests_de_oposicion(seleccion)
             if tests_guardados:
                 for test in tests_guardados:
-                    texto = f"📄 **{test['nombre_test']}** ({test['fecha']})"  
-[Descargar PDF]({})".format(
-                        test["nombre_test"],
-                        test["fecha"],
-                        test["pdf"]
-                    )
+                    texto = "📄 **{}** ({})".format(test["nombre_test"], test["fecha"])
                     st.markdown(texto)
+                    st.markdown("[Descargar PDF]({})".format(test["pdf"]))
             else:
                 st.markdown("No hay tests guardados aún para esta oposición.")
 
@@ -74,31 +71,34 @@ elif modo == "📚 Usar temario guardado":
 
                 try:
                     ruta_json, ruta_pdf, preguntas = generar_test_examen_completo(seleccion, temas_dict)
-                    st.success("✅ Test generado correctamente")
+                    if ruta_pdf:
+                        st.success("✅ Test generado correctamente")
 
-                    with open(ruta_pdf, "rb") as f_pdf:
-                        st.download_button("📎 Descargar test en PDF", f_pdf, file_name=os.path.basename(ruta_pdf))
+                        with open(ruta_pdf, "rb") as f_pdf:
+                            st.download_button("📎 Descargar test en PDF", f_pdf, file_name=os.path.basename(ruta_pdf))
 
-                    st.subheader("📝 Responde al test")
-                    respuestas_usuario = {}
-                    for idx, pregunta in enumerate(preguntas, 1):
-                        st.markdown("**" + str(idx) + ". " + pregunta["pregunta"] + "**")
-                        respuesta = st.radio(
-                            "Selecciona una respuesta para la pregunta " + str(idx),
-                            pregunta["opciones"],
-                            key="preg_" + str(idx)
-                        )
-                        respuestas_usuario[idx] = respuesta
-
-                    if st.button("✅ Validar respuestas"):
-                        aciertos = 0
-                        total = len(preguntas)
+                        st.subheader("📝 Responde al test")
+                        respuestas_usuario = {}
                         for idx, pregunta in enumerate(preguntas, 1):
-                            correcta = pregunta.get("respuesta_correcta", "")
-                            seleccionada = respuestas_usuario.get(idx, "")
-                            if seleccionada == correcta:
-                                aciertos += 1
-                        st.info("Has acertado {} de {} preguntas. ({:.1f}%)".format(aciertos, total, (aciertos / total) * 100))
+                            st.markdown("**" + str(idx) + ". " + pregunta["pregunta"] + "**")
+                            respuesta = st.radio(
+                                "Selecciona una respuesta para la pregunta " + str(idx),
+                                pregunta["opciones"],
+                                key="preg_" + str(idx)
+                            )
+                            respuestas_usuario[idx] = respuesta
+
+                        if st.button("✅ Validar respuestas"):
+                            aciertos = 0
+                            total = len(preguntas)
+                            for idx, pregunta in enumerate(preguntas, 1):
+                                correcta = pregunta.get("respuesta_correcta", "")
+                                seleccionada = respuestas_usuario.get(idx, "")
+                                if seleccionada == correcta:
+                                    aciertos += 1
+                            st.info("Has acertado {} de {} preguntas. ({:.1f}%)".format(aciertos, total, (aciertos / total) * 100))
+                    else:
+                        st.error("❌ No se pudo generar el PDF del test. Verifica si se generaron preguntas válidas.")
                 except Exception as e:
                     st.error("❌ Error generando el test: {}".format(e))
         else:
