@@ -1,36 +1,78 @@
-# ... (importaciones iguales que antes)
+import os
+import json
+import random
+from datetime import datetime
+import openai
+import streamlit as st
+
+from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
+from utils.pdf import generar_pdf_test
+from utils.estructura import clasificacion_temas, estructura_bloques
+from utils.sheets import registrar_en_sheet
+
+openai.api_key = st.secrets["openai_api_key"]
+
+def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
+    prompt = f"""
+    Eres un generador de exámenes oficiales para oposiciones. Tu tarea es generar exactamente {num_preguntas} preguntas tipo test a partir del siguiente tema.
+
+    Título del tema: {nombre_tema}
+
+    Contenido del tema:
+    {contenido_tema}
+
+    Las preguntas deben cumplir este formato:
+    - Cada pregunta tiene 4 opciones (A, B, C, D).
+    - Una única respuesta es correcta.
+    - El resultado debe estar en JSON válido con esta estructura exacta:
+
+    [
+      {{
+        "pregunta": "Texto de la pregunta",
+        "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
+        "respuesta_correcta": "Opción C"
+      }},
+      ...
+    ]
+
+    Devuelve ÚNICAMENTE el JSON, sin explicaciones ni introducciones.
+    """
+
+    try:
+        respuesta = openai.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        texto = respuesta.choices[0].message.content
+        preguntas = json.loads(texto)
+    except Exception as e:
+        print("Error procesando respuesta de OpenAI:", e)
+        preguntas = []
+
+    return preguntas
 
 def generar_test_examen_completo(nombre_oposicion, temas_dict):
     preguntas_total = []
     preguntas_reserva = []
 
     temas_validos = [(tema, contenido) for tema, contenido in temas_dict.items() if tema in clasificacion_temas]
-    if not temas_validos:
-        st.error("❌ Ningún tema del temario coincide con la clasificación definida.")
-        return None, None, []
-
     random.shuffle(temas_validos)
 
     for tema, contenido in temas_validos:
         preguntas = generar_preguntas_desde_tema(tema, contenido, 4)
-        if preguntas:
-            preguntas_total.extend(preguntas)
+        preguntas_total.extend(preguntas)
         if len(preguntas_total) >= 90:
             break
 
     for tema, contenido in temas_validos:
         preguntas = generar_preguntas_desde_tema(tema, contenido, 2)
-        if preguntas:
-            preguntas_reserva.extend(preguntas)
+        preguntas_reserva.extend(preguntas)
         if len(preguntas_reserva) >= 10:
             break
 
     preguntas_total = preguntas_total[:90]
     preguntas_reserva = preguntas_reserva[:10]
-
-    if len(preguntas_total) < 1:
-        st.error("❌ No se han podido generar preguntas principales.")
-        return None, None, []
 
     for p in preguntas_reserva:
         p["reserva"] = True
@@ -48,12 +90,7 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
         json.dump(todas, f, indent=2, ensure_ascii=False)
 
     enlace_json = subir_archivo_a_drive(ruta_json, nombre_oposicion, CARPETA_TEST_JSON)
-    
     ruta_pdf = generar_pdf_test(nombre_oposicion, todas, nombre_archivo)
-    if ruta_pdf is None:
-        st.error("❌ Error generando el PDF. Verifica si se generaron preguntas correctamente.")
-        return None, None, []
-
     enlace_pdf = subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
 
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
