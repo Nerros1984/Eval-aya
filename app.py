@@ -52,7 +52,7 @@ elif modo == "📚 Usar temario guardado":
             tests_guardados = obtener_tests_de_oposicion(seleccion)
             if tests_guardados:
                 for test in tests_guardados:
-                    texto = "🧾 **{}** ({})  
+                    texto = f"📄 **{test['nombre_test']}** ({test['fecha']})"  
 [Descargar PDF]({})".format(
                         test["nombre_test"],
                         test["fecha"],
