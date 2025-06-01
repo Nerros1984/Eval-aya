@@ -7,10 +7,22 @@ import streamlit as st
 
 from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
 from utils.pdf import generar_pdf_test
-from utils.estructura import clasificacion_temas, estructura_bloques
 from utils.sheets import registrar_en_sheet
 
 openai.api_key = st.secrets["openai_api_key"]
+
+# CLASIFICACIÓN DE TEMAS EN BLOQUES
+clasificacion_temas = {
+    "bloque_1": ["TEMA_1", "TEMA_2", "TEMA_3"],
+    "bloque_2": ["TEMA_4", "TEMA_5", "TEMA_6"],
+    "bloque_3": ["TEMA_7", "TEMA_8", "TEMA_9"],
+    "bloque_4": ["TEMA_10", "TEMA_11", "TEMA_12"],
+    "bloque_5": ["TEMA_13", "TEMA_14", "TEMA_15"],
+    "bloque_6": ["TEMA_16", "TEMA_17", "TEMA_18"],
+    "bloque_7": ["TEMA_19", "TEMA_20", "TEMA_21"],
+    "bloque_8": ["TEMA_22", "TEMA_23", "TEMA_24"],
+    "bloque_9": ["TEMA_25"]
+}
 
 def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
     prompt = f"""
@@ -37,7 +49,6 @@ def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
 
     Devuelve ÚNICAMENTE el JSON, sin explicaciones ni introducciones.
     """
-
     try:
         respuesta = openai.chat.completions.create(
             model="gpt-4",
@@ -47,7 +58,7 @@ def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
         texto = respuesta.choices[0].message.content
         preguntas = json.loads(texto)
     except Exception as e:
-        print("Error procesando respuesta de OpenAI:", e)
+        print("❌ Error procesando respuesta de OpenAI:", e)
         preguntas = []
 
     return preguntas
@@ -56,7 +67,14 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
     preguntas_total = []
     preguntas_reserva = []
 
-    temas_validos = [(tema, contenido) for tema, contenido in temas_dict.items() if tema in clasificacion_temas]
+    # Construimos lista válida de temas
+    temas_disponibles = temas_dict.items()
+    temas_validos = [(k, v) for k, v in temas_disponibles if any(k.startswith(t) for t in sum(clasificacion_temas.values(), []))]
+
+    if not temas_validos:
+        st.error("❌ No se han encontrado temas válidos en el temario.")
+        return None, None, []
+
     random.shuffle(temas_validos)
 
     for tema, contenido in temas_validos:
@@ -82,6 +100,10 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
 
     st.warning(f"Se han generado {len(preguntas_total)} preguntas + {len(preguntas_reserva)} de reserva")
 
+    if not todas:
+        st.error("❌ No se han podido generar preguntas con IA. Verifica que el contenido de los temas es adecuado.")
+        return None, None, []
+
     nombre_archivo = f"{nombre_oposicion}_examen_oficial_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     os.makedirs("test_generados", exist_ok=True)
 
@@ -90,10 +112,14 @@ def generar_test_examen_completo(nombre_oposicion, temas_dict):
         json.dump(todas, f, indent=2, ensure_ascii=False)
 
     enlace_json = subir_archivo_a_drive(ruta_json, nombre_oposicion, CARPETA_TEST_JSON)
+
+    # Protección: solo generar PDF si hay preguntas
     ruta_pdf = generar_pdf_test(nombre_oposicion, todas, nombre_archivo)
-    enlace_pdf = subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
+    enlace_pdf = None
+    if ruta_pdf:
+        enlace_pdf = subir_archivo_a_drive(ruta_pdf, nombre_oposicion, CARPETA_TEST_PDF)
 
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-    registrar_en_sheet(nombre_oposicion, nombre_archivo, "test", enlace_pdf, enlace_json, fecha)
+    registrar_en_sheet(nombre_oposicion, nombre_archivo, "test", enlace_pdf or "-", enlace_json or "-", fecha)
 
     return ruta_json, ruta_pdf, todas
