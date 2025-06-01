@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 import openai
 import streamlit as st
-
+from utils.estructura import estructura_bloques
 from utils.drive import subir_archivo_a_drive, CARPETA_TEST_JSON, CARPETA_TEST_PDF
 from utils.pdf import generar_pdf_test
 from utils.sheets import registrar_en_sheet
