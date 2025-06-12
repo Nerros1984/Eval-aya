@@ -1,0 +1,15 @@
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import streamlit as st
+
+scopes = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
+def obtener_cliente():
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+        dict(st.secrets["gcp_service_account"]),
+        scopes
+    )
+    return gspread.authorize(credentials)
