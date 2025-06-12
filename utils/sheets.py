@@ -44,3 +44,4 @@ def obtener_oposiciones_y_temas():
             oposiciones_dict[oposicion].append(tema)
 
     return dict(oposiciones_dict)
+
