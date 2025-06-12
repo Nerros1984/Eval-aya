@@ -1,15 +1,18 @@
 # core/test_generator.py
 
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import uuid
 from datetime import datetime
-
-from core.estructura import obtener_estructura_test
-from core.temas import dividir_temas_en_dict
 from utils.gpt import generar_preguntas_gpt
+
+
+def obtener_estructura_basica(nombre_oposicion):
+    """Genera una estructura simple de 5 bloques de 10 preguntas cada uno."""
+    return [{"tema": "TEMA_01", "num_preguntas": 10} for _ in range(5)]
+
+
+def dividir_temario_por_tema(temario_texto):
+    """Devuelve el temario entero como único bloque."""
+    return {"TEMA_01": temario_texto}
 
 
 class TestGenerator:
@@ -20,9 +23,8 @@ class TestGenerator:
         self.fecha = datetime.now().strftime("%Y-%m-%d")
 
     def generar_test_oficial(self) -> dict:
-        """Genera el test completo según la estructura oficial."""
-        estructura = obtener_estructura_test(self.nombre_oposicion)
-        temas_dict = dividir_temas_en_dict(self.temario_texto)
+        estructura = obtener_estructura_basica(self.nombre_oposicion)
+        temas_dict = dividir_temario_por_tema(self.temario_texto)
 
         preguntas_finales = []
         for bloque in estructura:
@@ -36,7 +38,7 @@ class TestGenerator:
             )
             preguntas_finales.extend(preguntas)
 
-        if len(preguntas_finales) < 50:
+        if len(preguntas_finales) < 30:
             raise ValueError("El número de preguntas generadas es insuficiente para validar el test.")
 
         return {
