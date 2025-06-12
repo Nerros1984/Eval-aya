@@ -1,7 +1,6 @@
 # app.py
 
-import sys
-import os
+import os, sys
 sys.path.append(os.path.abspath("."))
 
 import streamlit as st
