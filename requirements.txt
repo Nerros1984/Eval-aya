@@ -7,6 +7,3 @@ oauth2client
 docx2txt
 PyDrive
 fpdf
-./core
-./utils
-./ui
