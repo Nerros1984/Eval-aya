@@ -35,3 +35,4 @@ def paso_generacion(nombre_oposicion, temario_texto):
             st.markdown(f"[Descargar PDF]({enlace_pdf})")
         except Exception as e:
             st.error(f"Error: {str(e)}")
+
