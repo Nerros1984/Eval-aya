@@ -8,13 +8,22 @@ from core.test_manager import (
     registrar_test_en_drive,
     registrar_metadata_en_sheets
 )
+from utils.sheets import obtener_oposiciones_y_temas  # Nueva función para el desplegable
 
 st.set_page_config(page_title="EvalúaYa", layout="centered")
 st.title("📝 EvalúaYa – Generador de Tests de Oposición")
 
 st.markdown("---")
-st.header("1. Subir temario")
-nombre_oposicion = st.text_input("Nombre de la oposición")
+st.header("1. Selecciona oposición y tema")
+
+oposiciones_dict = obtener_oposiciones_y_temas()
+
+oposicion_seleccionada = st.selectbox("Oposición", list(oposiciones_dict.keys()))
+tema_seleccionado = st.selectbox("Tema disponible", oposiciones_dict[oposicion_seleccionada])
+
+st.markdown("---")
+st.header("2. Subir temario completo")
+nombre_oposicion = st.text_input("Nombre de la oposición (manual si no está en la lista)")
 temario_texto = st.text_area("Pega aquí el temario completo", height=300)
 
 if st.button("Generar test oficial"):
