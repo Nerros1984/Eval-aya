@@ -3,7 +3,7 @@
 import os
 import json
 from datetime import datetime
-from utils.drive import subir_a_drive
+from utils.drive import subir_archivo_a_drive
 from utils.pdf import generar_pdf_test
 
 RUTA_LOCAL_JSON = "data/tests_json"
