@@ -19,3 +19,4 @@ def mostrar_error(texto):
 
 def mostrar_spinner(texto):
     return st.spinner(texto)
+
