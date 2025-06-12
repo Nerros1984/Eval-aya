@@ -1,5 +1,9 @@
 # core/test_generator.py
 
+import sys
+import os
+sys.path.append(os.path.abspath("."))
+
 import uuid
 from datetime import datetime
 
