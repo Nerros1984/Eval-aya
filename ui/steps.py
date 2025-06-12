@@ -1,7 +1,7 @@
 # ui/steps.py
 
 import streamlit as st
-from core.test_generator import TestGenerator
+from core.test_generator import generar_test_examen_completo
 from core.test_manager import (
     guardar_test_json,
     generar_y_guardar_pdf,
