@@ -1,49 +1,45 @@
-# core/test_generator.py
+import json
+from openai import OpenAI
+import streamlit as st
 
-import uuid
-from datetime import datetime
-from utils.gpt import generar_preguntas_gpt
+client = OpenAI(api_key=st.secrets["openai_api_key"])
 
+def generar_preguntas_desde_tema(nombre_tema, contenido_tema, num_preguntas=5):
+    prompt = f"""
+    Eres un generador de exámenes oficiales para oposiciones. Tu tarea es generar exactamente {num_preguntas} preguntas tipo test a partir del siguiente tema.
 
-def obtener_estructura_basica(nombre_oposicion):
-    """Genera una estructura simple de 5 bloques de 10 preguntas cada uno."""
-    return [{"tema": "TEMA_01", "num_preguntas": 10} for _ in range(5)]
+    Título del tema: {nombre_tema}
 
+    Contenido del tema:
+    {contenido_tema}
 
-def dividir_temario_por_tema(temario_texto):
-    """Devuelve el temario entero como único bloque."""
-    return {"TEMA_01": temario_texto}
+    Las preguntas deben cumplir este formato:
+    - Cada pregunta tiene 4 opciones (A, B, C, D).
+    - Una única respuesta es correcta.
+    - El resultado debe estar en JSON válido con esta estructura exacta:
 
+    [
+      {{
+        "pregunta": "Texto de la pregunta",
+        "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
+        "respuesta_correcta": "Opción C"
+      }},
+      ...
+    ]
 
-class TestGenerator:
-    def __init__(self, nombre_oposicion: str, temario_texto: str):
-        self.nombre_oposicion = nombre_oposicion
-        self.temario_texto = temario_texto
-        self.test_id = str(uuid.uuid4())
-        self.fecha = datetime.now().strftime("%Y-%m-%d")
+    Devuelve ÚNICAMENTE el JSON, sin explicaciones ni introducciones.
+    """
 
-    def generar_test_oficial(self) -> dict:
-        estructura = obtener_estructura_basica(self.nombre_oposicion)
-        temas_dict = dividir_temario_por_tema(self.temario_texto)
+    try:
+        respuesta = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        texto = respuesta.choices[0].message.content
+        preguntas = json.loads(texto)
+    except Exception as e:
+        print("Error procesando respuesta de OpenAI:", e)
+        preguntas = []
 
-        preguntas_finales = []
-        for bloque in estructura:
-            tema = temas_dict.get(bloque["tema"])
-            if not tema:
-                continue
-
-            preguntas = generar_preguntas_gpt(
-                tema_texto=tema,
-                num_preguntas=bloque["num_preguntas"]
-            )
-            preguntas_finales.extend(preguntas)
-
-        if len(preguntas_finales) < 30:
-            raise ValueError("El número de preguntas generadas es insuficiente para validar el test.")
-
-        return {
-            "test_id": self.test_id,
-            "nombre_oposicion": self.nombre_oposicion,
-            "fecha": self.fecha,
-            "preguntas": preguntas_finales
-        }
+    return preguntas
