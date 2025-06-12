@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from core.estructura import obtener_estructura_test
+from .estructura import obtener_estructura_test
 from core.temas import dividir_temas_en_dict
 from utils.gpt import generar_preguntas_gpt
 
