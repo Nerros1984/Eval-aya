@@ -36,3 +36,4 @@ def guardar_temas_json(lista_temas, nombre_oposicion):
 def cargar_temas_desde_json_local(path):
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
+
