@@ -1,57 +1,31 @@
+# utils/sheets.py
+
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import streamlit as st
+from google.oauth2.service_account import Credentials
 
-def _get_client():
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(
-        st.secrets["gcp_service_account"],
-        ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    )
-    return gspread.authorize(creds)
+# Configura el acceso a Google Sheets
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+CREDENTIALS_FILE = "credentials.json"
+SHEET_NAME = "Registro_Tests_Generados"
 
-def registrar_en_sheet(nombre_oposicion, nombre_temario, tipo_contenido, enlace_pdf, enlace_json, fecha):
-    client = _get_client()
-    sheet = client.open("EvaluaYa_base").worksheet("temarios")
-    fila = [nombre_oposicion, nombre_temario, tipo_contenido, enlace_pdf, enlace_json, fecha]
-    sheet.append_row(fila)
 
-def obtener_oposiciones_guardadas():
-    client = _get_client()
-    sheet = client.open("EvaluaYa_base").worksheet("temarios")
-    datos = sheet.col_values(1)[1:]  # Columna A, sin cabecera
-    oposiciones = sorted(set(op.strip() for op in datos if op.strip()))
-    return oposiciones
+def get_worksheet():
+    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    sheet = client.open(SHEET_NAME)
+    return sheet.worksheet("Historial")
 
-def obtener_temarios_de_oposicion(nombre_oposicion):
-    client = _get_client()
-    sheet = client.open("EvaluaYa_base").worksheet("temarios")
-    registros = sheet.get_all_values()[1:]  # sin cabecera
 
-    return [
-        {
-            "nombre_temario": fila[1],
-            "tipo": fila[2],
-            "pdf": fila[3],
-            "json": fila[4],
-            "fecha": fila[5]
-        }
-        for fila in registros
-        if len(fila) >= 6 and fila[0] == nombre_oposicion and fila[2] == "temario"
+def registrar_test_generado(data: dict):
+    ws = get_worksheet()
+    fila = [
+        data.get("fecha"),
+        data.get("nombre_oposicion"),
+        data.get("test_id"),
+        data.get("num_preguntas"),
+        data.get("enlace_pdf")
     ]
-
-def obtener_tests_de_oposicion(nombre_oposicion):
-    client = _get_client()
-    sheet = client.open("EvaluaYa_base").worksheet("temarios")
-    registros = sheet.get_all_values()[1:]  # sin cabecera
-
-    return [
-        {
-            "nombre_test": fila[1],
-            "tipo": fila[2],
-            "pdf": fila[3],
-            "json": fila[4],
-            "fecha": fila[5]
-        }
-        for fila in registros
-        if len(fila) >= 6 and fila[0] == nombre_oposicion and fila[2] == "test"
-    ]
+    ws.append_row(fila, value_input_option="USER_ENTERED")
