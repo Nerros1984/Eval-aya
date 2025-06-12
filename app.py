@@ -1,5 +1,9 @@
 # app.py
 
+import sys
+import os
+sys.path.append(os.path.abspath("."))
+
 import streamlit as st
 from ui.layout import mostrar_titulo, mostrar_footer
 from ui.steps import paso_subida_temario, paso_generacion
